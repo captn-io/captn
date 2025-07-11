@@ -1,5 +1,9 @@
 # captn
 
+<div align="center">
+  <img src="assets/icons/app-icon.svg" alt="captn logo" width="120" height="120">
+</div>
+
 A rule-driven container updater that automates Docker container upgrades based on semantic versioning and registry metadata. This tool intelligently manages container updates with sophisticated rules, self-update capabilities, and comprehensive logging.
 
 ## 🚀 Features

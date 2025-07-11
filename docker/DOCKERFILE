@@ -1,0 +1,88 @@
+FROM alpine:3.20.0 AS base
+
+ARG VERSION=unknown
+ARG REVISION=unknown
+ARG CREATED=unknown
+
+ENV VERSION=${VERSION}
+
+# Common labels for all stages
+LABEL org.opencontainers.image.title="captn" \
+      org.opencontainers.image.description="A rule-driven container updater that automates Docker container upgrades based on semantic versioning and registry metadata." \
+      org.opencontainers.image.version=$VERSION \
+      org.opencontainers.image.url="https://github.com/captn-io/captn" \
+      org.opencontainers.image.source="https://github.com/captm-io/captn" \
+      org.opencontainers.image.revision=$REVISION \
+      org.opencontainers.image.created=$CREATED \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.authors="Jan Hansmeyer <jan@jk-net.com>"
+
+# Set working directory
+WORKDIR /app
+
+# Install common system dependencies
+RUN apk add --no-cache \
+    coreutils \
+    dcron \
+    bash \
+    python3 \
+    py3-pip \
+    docker-cli \
+    curl \
+    tzdata
+
+# Create python virtual environment
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Install Python production dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy project files
+COPY . .
+
+# Copy scripts and cron template
+COPY docker/entrypoint.sh /app/entrypoint.sh
+COPY docker/crontab.template /app/crontab.template
+
+# Make scripts executable
+RUN chmod +x /app/entrypoint.sh
+
+# Create captn symlink
+RUN ln -s /app/captn.sh /usr/local/bin/captn
+
+# Set PYTHONPATH
+ENV PYTHONPATH=/app
+
+# Production stage (default)
+FROM base AS production
+
+# Production entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+# Development stage
+FROM base AS development
+
+# Install development-specific system packages
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    docker-cli \
+    dcron
+
+# Install development Python packages
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Create development directories
+RUN mkdir -p /app/{conf,logs,data,tmp}
+
+# Set development environment variables
+ENV DEVELOPMENT=true
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Development stage does not set an ENTRYPOINT to allow flexible usage
+# This allows the dev script to start with any command

@@ -1,0 +1,61 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+htmlcov/
+.coverage
+.cache/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+
+# Pytest cache
+.pytest_cache/
+
+# Environment variables / secrets
+.env
+.env.*
+
+# IDE configs
+.vscode/
+.idea/
+*.code-workspace
+
+# Podcast metadata cache (optional)
+*.rss
+*.xml
+*.json
+
+# Docker-related
+*.pid
+*.sock
+*.db
+.DS_Store
+docker-compose.override.yml
+
+# System files
+Thumbs.db
+ehthumbs.db
+
+# Other
+/app/logs/*
+/app/venv/*

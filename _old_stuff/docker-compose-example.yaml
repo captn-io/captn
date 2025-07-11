@@ -1,0 +1,54 @@
+version: '5'
+
+services:
+  Docker-Container-Updater:
+    image: janjk/Docker-Container-Updater:latest
+    container_name: Docker-Container-Updater
+    hostname: Docker-Container-Updater
+    privileged: true
+    restart: always
+    tty: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/localtime:/etc/localtime:ro
+      - ./pre-scripts:/opt/docker_container_updater/pre-scripts
+      - ./post-scripts:/opt/docker_container_updater/post-scripts
+      - ./logs:/opt/docker_container_updater/logs
+    environment:
+      # DETAILED DESCRIPTION: https://github.com/jansppenrade2/Docker-Container-Updater?tab=readme-ov-file#configuration
+      # COMMON
+      DCU_TEST_MODE: true
+      DCU_UPDATE_RULES: '*[0.1.1-1,true]'
+      DCU_CRONTAB_EXECUTION_EXPRESSION: '30 2 * * *'
+      # PATHS
+      DCU_CONFIG_FILE: /opt/docker_container_updater/container_update.ini
+      DCU_PRE_SCRIPTS_FOLDER: /opt/docker_container_updater/pre-scripts
+      DCU_POST_SCRIPTS_FOLDER: /opt/docker_container_updater/post-scripts
+      # CONTAINERS SETTINGS
+      DCU_PRUNE_IMAGES: true
+      DCU_PRUNE_CONTAINER_BACKUPS: true
+      DCU_CONTAINER_BACKUPS_RETENTION: 7
+      DCU_CONTAINER_BACKUPS_KEEP_LAST: 1
+      DCU_CONTAINER_UPDATE_VALIDATION_TIME: 120
+      DCU_DOCKER_HUB_API_URL: 'https://registry.hub.docker.com/v2'
+      DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_SIZE_LIMIT: 100
+      DCU_DOCKER_HUB_API_IMAGE_TAGS_PAGE_CRAWL_LIMIT: 10
+      DCU_DOCKER_HUB_IMAGE_MINIMUM_AGE: 21600
+      # LOGS
+      DCU_LOG_FILEPATH: /opt/docker_container_updater/logs/container_update.log
+      DCU_LOG_LEVEL: INFO
+      DCU_LOG_RETENTION: 7
+      # NOTIFICATIONS
+      ## MAIL
+      DCU_MAIL_NOTIFICATIONS_ENABLED: false
+      DCU_MAIL_NOTIFICATION_MODE: sendmail
+      DCU_MAIL_FROM: ''
+      DCU_MAIL_RECIPIENTS: ''
+      DCU_MAIL_SUBJECT: 'Docker Container Update Report from $(hostname)'
+      DCU_MAIL_RELAYHOST: ''
+      ## TELEGRAM
+      DCU_TELEGRAM_NOTIFICATIONS_ENABLED: false
+      DCU_TELEGRAM_BOT_TOKEN: ''
+      DCU_TELEGRAM_CHAT_ID: ''
+      DCU_TELEGRAM_RETRY_INTERVAL: 10
+      DCU_TELEGRAM_RETRY_LIMIT: 2

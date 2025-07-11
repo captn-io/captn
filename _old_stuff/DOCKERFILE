@@ -1,0 +1,49 @@
+FROM alpine:3.20.0 AS base
+
+ARG image_authors
+ARG image_base_name
+ARG image_created
+ARG image_description
+ARG image_documentation
+ARG image_licenses
+ARG image_source
+ARG image_title
+ARG image_url
+ARG image_version
+
+LABEL org.opencontainers.image.authors="${image_authors}"
+LABEL org.opencontainers.image.base.name="${image_base_name}"
+LABEL org.opencontainers.image.created="${image_created}"
+LABEL org.opencontainers.image.description="${image_description}"
+LABEL org.opencontainers.image.documentation="${image_documentation}"
+LABEL org.opencontainers.image.licenses="${image_licenses}"
+LABEL org.opencontainers.image.source="${image_source}"
+LABEL org.opencontainers.image.title="${image_title}"
+LABEL org.opencontainers.image.url="${image_url}"
+LABEL org.opencontainers.image.version="${image_version}"
+
+RUN apk update && \
+apk add \
+    bash \
+    coreutils \
+    curl \
+    docker \
+    gawk \
+    grep \
+    jq \
+    ncurses \
+    postfix \
+    unzip \
+    wget \
+    which \
+    zip \
+&& rm -rf /var/cache/apk/*
+
+WORKDIR /opt/dcu
+COPY ./LICENSE /opt/dcu/LICENSE
+COPY ./entrypoint.sh /opt/dcu/entrypoint.sh
+COPY ./dcu.sh /opt/dcu/dcu.sh
+RUN chmod ugo+x dcu.sh entrypoint.sh
+RUN ln -s /opt/dcu/dcu.sh /bin/dcu
+
+ENTRYPOINT [ "/opt/dcu/entrypoint.sh" ]

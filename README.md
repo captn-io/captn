@@ -5,7 +5,7 @@
 ---
 
 <p align="center">
-  A rule-driven container updater that automates Docker container upgrades based on semantic versioning and registry metadata.<br>
+  A rule-driven container updater that automates Docker container upgrades based on semantic versioning and registry metadata.<br><br>
   This tool intelligently manages container updates with sophisticated rules, self-update capabilities, and comprehensive logging.
 </p>
 

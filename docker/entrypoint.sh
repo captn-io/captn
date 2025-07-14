@@ -14,6 +14,12 @@ fi
 # Create necessary directories
 mkdir -p /app/{conf,logs}
 
+# Enable auto-completion for interactive shells
+if [ -f /etc/bash_completion.d/captn ]; then
+    echo "[ENTRYPOINT] Auto-completion script found and will be available in interactive shells"
+    source /etc/bash_completion.d/captn
+fi
+
 # Check if configuration file exists
 if [ ! -f "/app/conf/captn.cfg" ]; then
     echo "[ENTRYPOINT] Configuration file not found. Creating default configuration..."

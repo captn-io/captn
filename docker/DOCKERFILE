@@ -25,6 +25,7 @@ RUN apk add --no-cache \
     coreutils \
     dcron \
     bash \
+    bash-completion \
     python3 \
     py3-pip \
     docker-cli \
@@ -52,6 +53,17 @@ RUN chmod +x /app/entrypoint.sh
 
 # Create captn symlink
 RUN ln -s /app/captn.sh /usr/local/bin/captn
+
+# Setup auto-completion for Docker environment
+RUN mkdir -p /etc/bash_completion.d
+COPY app/completion.sh /etc/bash_completion.d/captn
+RUN chmod +x /etc/bash_completion.d/captn
+
+# Create a global completion script that works in containerized environments
+RUN echo 'source /etc/bash_completion.d/captn' >> /etc/bash.bashrc
+
+# Also add to .bashrc for interactive shells
+RUN echo 'source /etc/bash_completion.d/captn' >> /root/.bashrc
 
 # Set PYTHONPATH
 ENV PYTHONPATH=/app

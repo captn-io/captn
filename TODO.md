@@ -10,6 +10,7 @@ This document outlines the planned features and improvements for the captn conta
 - [ ] **Pre/post-update scripts** - Integrate optional pre- and post-update script execution
 - [ ] **Self-update functionality** - Implement ability for captn to update itself
 - [ ] **Container network config verification** - Verify takeover of container's network configs and tmpfs
+- [x] **CLI Auto-Completion** - Provide intelligent tab-completion for commands and options
 
 ### Monitoring & Logging
 - [ ] **Enhanced logging** - Log docker inspect output before and after updates

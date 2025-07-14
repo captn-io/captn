@@ -182,12 +182,12 @@ export RULES_MYCUSTOMRULE='{"minImageAge": "1h", "allow": {"patch": true}}'
 python -m app [OPTIONS]
 
 Options:
-  --version, -v           Display the current version
-  --force, -f            Force lock acquisition
-  --run, -r              Force actual execution without dry-run
-  --dry-run, -t          Run in dry-run/test mode
-  --filter FILTER        Filter containers to process
-  --log-level, -l        Set logging level (debug, info, warning, error, critical)
+  --version, -v             Display the current version
+  --force, -f               Force lock acquisition
+  --run, -r                 Force actual execution without dry-run
+  --dry-run, -t             Run in dry-run/test mode
+  --filter FILTER           Filter containers to process
+  --log-level, -l           Set logging level (debug, info, warning, error, critical)
 ```
 
 ### Container Filtering

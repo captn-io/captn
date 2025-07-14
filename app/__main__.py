@@ -8,6 +8,7 @@ import os
 import tempfile
 import textwrap
 import time
+import argcomplete
 from argparse import RawTextHelpFormatter
 from datetime import datetime, timezone
 
@@ -18,30 +19,58 @@ from .utils.common import setup_logging
 from .utils.config import config
 
 
+def get_container_names():
+    """Get list of all Docker container names for auto-completion."""
+    try:
+        client = engines.get_client()
+        if client:
+            containers = client.containers.list(all=True)
+            return [container.name for container in containers]
+    except Exception:
+        pass
+    return []
+
+
+def get_container_statuses():
+    """Get list of valid container statuses for auto-completion."""
+    return ["running", "exited", "created", "paused", "restarting", "removing", "dead", "all"]
+
+
+def get_log_levels():
+    """Get list of valid log levels for auto-completion."""
+    return ["debug", "info", "warning", "error", "critical"]
+
 def parse_args():
     parser = argparse.ArgumentParser(
-        prog="captn",
+        prog="captn.io/captn",
         description=(
-            "A rule-driven container updater that automates Docker container "
-            "upgrades based on semantic versioning and registry metadata."
+            "A rule-driven container updater that automates Docker container upgrades based on semantic versioning and registry metadata."
         ),
         formatter_class=RawTextHelpFormatter,
     )
 
     parser.add_argument(
-        "--version", "-v", action="version", version=__version__, help="Display the current version"
+        "--version", "-v",
+        action="version",
+        version=__version__,
+        help="Display the current version"
     )
     parser.add_argument(
-        "--force", "-f", action="store_true", help="Force lock acquisition"
+        "--force", "-f",
+        action="store_true",
+        help="Force lock acquisition"
     )
     parser.add_argument(
-        "--run", "-r", action="store_true", help="Force actual execution without dry-run, overriding the configuration"
+        "--run", "-r",
+        action="store_true",
+        help="Force actual execution without dry-run, overriding the configuration"
     )
     parser.add_argument(
-        "--dry-run", "-t", action="store_true", 
+        "--dry-run", "-t",
+        action="store_true",
         help="Run Container Updater in dry-run/test mode to review what it would do (default is set in config)"
     )
-    parser.add_argument(
+    filter_arg = parser.add_argument(
         "--filter", nargs="*", metavar="FILTER",
         help=textwrap.dedent("""
                             Filter the list of containers to process.
@@ -65,7 +94,8 @@ def parse_args():
                         """)
     )
     parser.add_argument(
-        "--log-level", "-l", choices=["debug", "info", "warning", "error", "critical"],
+        "--log-level", "-l",
+        choices=["debug", "info", "warning", "error", "critical"],
         default=(
             config.logging.level.lower()
             if config.logging.level.lower() in ["debug", "info", "warning", "error", "critical"]
@@ -73,6 +103,9 @@ def parse_args():
         ),
         help="Set the logging level",
     )
+
+    if argcomplete:
+        argcomplete.autocomplete(parser)
 
     return parser.parse_args()
 
@@ -141,25 +174,10 @@ def main():
             continue
 
         # Debug logging with conditional formatting
-        if container_inspect_data:
-            logging.debug(f"-> container_inspect_data:\n{json.dumps(container_inspect_data, indent=4)}", extra={"indent": 2})
-        else:
-            logging.debug(f"-> container_inspect_data: {None}", extra={"indent": 2})
-
-        if image_inspect_data:
-            logging.debug(f"-> image_inspect_data:\n{json.dumps(image_inspect_data, indent=4)}", extra={"indent": 2})
-        else:
-            logging.debug(f"-> image_inspect_data: {None}", extra={"indent": 2})
-
-        if image_metadata:
-            logging.debug(f"-> image_metadata:\n{json.dumps(image_metadata, indent=4)}", extra={"indent": 2})
-        else:
-            logging.debug(f"-> image_metadata: {None}", extra={"indent": 2})
-
-        if remote_image_tags:
-            logging.debug(f"-> remote_image_tags:\n{json.dumps(remote_image_tags, indent=4)}", extra={"indent": 2})
-        else:
-            logging.debug(f"-> remote_image_tags: {None}", extra={"indent": 2})
+        logging.debug(f"-> container_inspect_data:  \n{json.dumps(container_inspect_data, indent=4) if container_inspect_data   else None}", extra={"indent": 2})
+        logging.debug(f"-> image_inspect_data:      \n{json.dumps(image_inspect_data, indent=4)     if image_inspect_data       else None}", extra={"indent": 2})
+        logging.debug(f"-> image_metadata:          \n{json.dumps(image_metadata, indent=4)         if image_metadata           else None}", extra={"indent": 2})
+        logging.debug(f"-> remote_image_tags:       \n{json.dumps(remote_image_tags, indent=4)      if remote_image_tags        else None}", extra={"indent": 2})
 
         if (container and container_inspect_data and image and image_metadata and image_inspect_data and remote_image_tags):
             virtual_image_metadata = image_metadata.copy() if dry_run else None

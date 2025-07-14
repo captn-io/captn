@@ -5,3 +5,4 @@ idna==3.10
 packaging==25.0
 requests==2.32.4
 urllib3==2.4.0
+argcomplete>=3.0.0

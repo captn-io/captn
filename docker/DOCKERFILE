@@ -52,11 +52,11 @@ COPY docker/crontab.template /app/crontab.template
 RUN chmod +x /app/entrypoint.sh
 
 # Create captn symlink
-RUN ln -s /app/captn.sh /usr/local/bin/captn
+RUN ln -s /app/cli/scripts/captn.sh /usr/local/bin/captn
 
 # Setup auto-completion for Docker environment
 RUN mkdir -p /etc/bash_completion.d
-COPY app/completion.sh /etc/bash_completion.d/captn
+COPY app/cli/scripts/captn-cli-completion.sh /etc/bash_completion.d/captn
 RUN chmod +x /etc/bash_completion.d/captn
 
 # Create a global completion script that works in containerized environments

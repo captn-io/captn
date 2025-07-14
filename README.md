@@ -188,6 +188,7 @@ Options:
   --dry-run, -t             Run in dry-run/test mode
   --filter FILTER           Filter containers to process
   --log-level, -l           Set logging level (debug, info, warning, error, critical)
+  --clear-logs, -c          Delete all log files before starting
 ```
 
 ### Container Filtering
@@ -222,6 +223,9 @@ python -m app --run --log-level debug --filter name=postgres
 
 # Force execution (override config dry-run setting)
 python -m app --run --force
+
+# Delete logs and run with debug logging
+python -m app --clear-logs --log-level debug --dry-run
 ```
 
 ## 🎯 Rules System

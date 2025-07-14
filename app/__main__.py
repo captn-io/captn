@@ -40,6 +40,35 @@ def get_log_levels():
     """Get list of valid log levels for auto-completion."""
     return ["debug", "info", "warning", "error", "critical"]
 
+
+def clear_logs():
+    """Delete all log files in the logs directory."""
+    import glob
+    import os
+
+    log_dir = os.path.join(os.path.dirname(__file__), "logs")
+    if os.path.exists(log_dir):
+        # Find all log files (captn.log, captn.log.1, captn.log.2, etc.)
+        log_pattern = os.path.join(log_dir, "captn.log*")
+        log_files = glob.glob(log_pattern)
+
+        deleted_count = 0
+        for log_file in log_files:
+            try:
+                # Delete the file completely
+                os.remove(log_file)
+                deleted_count += 1
+                print(f"Deleted log file: {os.path.basename(log_file)}")
+            except Exception as e:
+                print(f"Failed to delete log file {log_file}: {e}")
+
+        if deleted_count > 0:
+            print(f"Successfully deleted {deleted_count} log file(s)")
+        else:
+            print("No log files found to delete")
+    else:
+        print("Log directory not found")
+
 def parse_args():
     parser = argparse.ArgumentParser(
         prog="captn.io/captn",
@@ -103,6 +132,11 @@ def parse_args():
         ),
         help="Set the logging level",
     )
+    parser.add_argument(
+        "--clear-logs", "-c",
+        action="store_true",
+        help="Clear all log files before starting",
+    )
 
     if argcomplete:
         argcomplete.autocomplete(parser)
@@ -116,6 +150,10 @@ def main():
         False if args.run
         else (True if args.dry_run else str(config.general.dryRun).lower() in ("yes", "true", "1"))
     )
+
+    # Clear logs if requested
+    if args.clear_logs:
+        clear_logs()
 
     setup_logging(log_level=args.log_level, dry_run=dry_run)
 

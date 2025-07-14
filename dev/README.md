@@ -69,7 +69,7 @@ parser.add_argument(
 
 #### 2. Update Auto-Completion Scripts
 
-**For Docker environments (`app/completion.sh`):**
+**For Docker environments (`app/cli/scripts/captn-cli-completion.sh`):**
 
 Add your new parameter to the `opts` variable:
 ```bash
@@ -126,7 +126,7 @@ parser.add_argument(
     help="Specify registry type"
 )
 
-# In app/completion.sh
+# In app/cli/scripts/captn-cli-completion.sh
 opts="--version --force --run --dry-run --filter --log-level --registry --help -v -f -r -t -l -R -h"
 
 # Add completion logic

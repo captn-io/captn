@@ -1,2 +1,2 @@
 
-$CRON_SCHEDULE /app/captn.sh >> /proc/1/fd/1 2>&1
+$CRON_SCHEDULE /app/cli/scripts/captn.sh >> /proc/1/fd/1 2>&1

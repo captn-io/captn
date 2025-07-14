@@ -80,7 +80,7 @@ def cleanup_unused_images(client, dry_run=False):
         return {}
 
     logging.info(
-        f"{'Would remove' if dry_run else 'Removing'} images unused within the past 24h",
+        f"{'Would remove' if dry_run else 'Removing'} unused images",
         extra={"indent": 4},
     )
 
@@ -90,11 +90,10 @@ def cleanup_unused_images(client, dry_run=False):
         logging.debug(f"Images before pruning: {len(images_before)}", extra={"indent": 6})
 
         if not dry_run:
-            # Use more aggressive pruning options
             result = client.images.prune(
                 filters={
                     "dangling": False,  # Remove all unused images, not just dangling ones
-                    "until": "24h",  # Remove images older than 24h if unused
+                    "until": "24h",     # Remove images older than 24h
                 }
             )
             logging.debug(f"Image prune result: {result}", extra={"indent": 6})

@@ -3,11 +3,12 @@ Unit tests for configuration management.
 """
 
 import os
+import tempfile
 from unittest.mock import mock_open, patch
 
 import pytest
 
-from app.utils.config import config
+from app.utils.config import config, Config
 
 
 class TestConfig:
@@ -50,13 +51,6 @@ default = {"allow": {"patch": true}}
         # For now, just test that the config object exists
         assert config is not None
 
-    def test_config_environment_override(self):
-        """Test environment variable overrides."""
-        with patch.dict(os.environ, {"GENERAL_DRYRUN": "false"}):
-            # This would test environment variable loading
-            # For now, just test that the config object exists
-            assert config is not None
-
 
 class TestConfigValidation:
     """Test configuration validation logic."""
@@ -68,7 +62,6 @@ class TestConfigValidation:
             for rule_name, rule_json in config.rules._values.items():
                 try:
                     import json
-
                     json.loads(rule_json)
                 except json.JSONDecodeError:
                     pytest.fail(f"Invalid JSON in rule '{rule_name}': {rule_json}")
@@ -85,3 +78,99 @@ class TestConfigValidation:
         if hasattr(config.logging, "level"):
             level = config.logging.level.upper()
             assert level in valid_levels, f"Invalid logging level: {level}"
+
+    def test_valid_configuration(self):
+        """Test that valid configuration passes validation."""
+        # This should not raise any exceptions
+        try:
+            config = Config()
+            assert config is not None
+        except ValueError as e:
+            pytest.fail(f"Valid configuration failed validation: {e}")
+
+    def test_invalid_logging_level(self):
+        """Test validation of invalid logging level."""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+            f.write("""
+[general]
+dryRun = false
+
+[logging]
+level = INVALID_LEVEL
+
+[rules]
+default = {"minImageAge": "3h", "allow": {"patch": true}}
+""")
+            temp_config_path = f.name
+        
+        try:
+            with pytest.raises(ValueError) as excinfo:
+                Config(temp_config_path)
+            assert "logging.level must be one of" in str(excinfo.value)
+        finally:
+            os.unlink(temp_config_path)
+
+    def test_invalid_duration_format(self):
+        """Test validation of invalid duration format."""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+            f.write("""
+[general]
+dryRun = false
+
+[logging]
+level = INFO
+
+[update]
+delayBetweenUpdates = invalid_duration
+
+[rules]
+default = {"minImageAge": "3h", "allow": {"patch": true}}
+""")
+            temp_config_path = f.name
+        
+        try:
+            with pytest.raises(ValueError) as excinfo:
+                Config(temp_config_path)
+            assert "update.delayBetweenUpdates must be a valid duration" in str(excinfo.value)
+        finally:
+            os.unlink(temp_config_path)
+
+    def test_invalid_rule_json(self):
+        """Test validation of invalid rule JSON."""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+            f.write("""
+[general]
+dryRun = false
+
+[logging]
+level = INFO
+
+[rules]
+default = {invalid json}
+""")
+            temp_config_path = f.name
+        
+        try:
+            with pytest.raises(ValueError) as excinfo:
+                Config(temp_config_path)
+            assert "rules.default must be valid JSON" in str(excinfo.value)
+        finally:
+            os.unlink(temp_config_path)
+
+    def test_missing_required_section(self):
+        """Test validation when required section is missing."""
+        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+            f.write("""
+[general]
+dryRun = false
+
+# Missing logging and rules sections
+""")
+            temp_config_path = f.name
+        
+        try:
+            with pytest.raises(ValueError) as excinfo:
+                Config(temp_config_path)
+            assert "Missing required section" in str(excinfo.value)
+        finally:
+            os.unlink(temp_config_path)

@@ -2,6 +2,10 @@
 
 This document outlines the planned features and improvements for the captn container updater project.
 
+
+---->  docker compose??? (maybe define an update type in config?)
+
+
 ## High Priority Features
 
 ### Project Foundation

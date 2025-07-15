@@ -31,12 +31,27 @@ Add these secrets to your GitHub repository settings:
 ### DockerHub Setup
 
 1. Create a DockerHub account if you don't have one
-2. Create a repository named `captn` under your organization/username
+2. Create a repository named `captn` under your username (e.g., `captnio/captn`)
 3. Generate an access token:
    - Go to DockerHub → Account Settings → Security
    - Click "New Access Token"
    - Give it a name like "GitHub Actions"
    - Copy the token and add it as `DOCKERHUB_TOKEN` secret
+
+### Docker Images
+
+Images are published to DockerHub under `captnio/captn`:
+
+```bash
+# Pull the latest image
+docker pull captnio/captn:latest
+
+# Pull a specific version
+docker pull captnio/captn:v1.0.0
+
+# Pull development build
+docker pull captnio/captn:dev
+```
 
 ### Tagging Strategy
 
@@ -78,8 +93,8 @@ To test the Docker build locally:
 
 ```bash
 # Build the image
-docker build -f docker/DOCKERFILE -t captn:test .
+docker build -f docker/DOCKERFILE -t captnio/captn:test .
 
 # Test the image
-docker run --rm captn:test captn --help
+docker run --rm captnio/captn:test captn --help
 ``` 

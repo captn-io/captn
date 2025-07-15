@@ -653,17 +653,17 @@ This project uses GitHub Actions for continuous integration and deployment. The 
 
 ### Docker Images
 
-Images are published to DockerHub under `captn-io/captn`:
+Images are published to DockerHub under `captnio/captn`:
 
 ```bash
 # Pull the latest image
-docker pull captn-io/captn:latest
+docker pull captnio/captn:latest
 
 # Pull a specific version
-docker pull captn-io/captn:v1.0.0
+docker pull captnio/captn:v1.0.0
 
 # Pull development build
-docker pull captn-io/captn:dev
+docker pull captnio/captn:dev
 ```
 
 ### Setup Requirements

@@ -9,7 +9,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_NAME: captn-io/captn
+  IMAGE_NAME: captnio/captn
 
 jobs:
   build:

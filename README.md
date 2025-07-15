@@ -640,6 +640,42 @@ docker logs container-updater -f
 4. Add tests if applicable
 5. Submit a pull request
 
+## 🚀 CI/CD
+
+This project uses GitHub Actions for continuous integration and deployment. The workflow automatically builds and publishes Docker images to DockerHub.
+
+### Automated Builds
+
+- **Triggered on**: Push to `main` branch and release tags (`v*`)
+- **Multi-platform**: Supports `linux/amd64` and `linux/arm64`
+- **Security scanning**: Includes Trivy and Snyk vulnerability scanning
+- **Automated testing**: Pulls and tests built images
+
+### Docker Images
+
+Images are published to DockerHub under `captn-io/captn`:
+
+```bash
+# Pull the latest image
+docker pull captn-io/captn:latest
+
+# Pull a specific version
+docker pull captn-io/captn:v1.0.0
+
+# Pull development build
+docker pull captn-io/captn:dev
+```
+
+### Setup Requirements
+
+To enable automated publishing, add these secrets to your GitHub repository:
+
+- `DOCKERHUB_USERNAME`: Your DockerHub username
+- `DOCKERHUB_TOKEN`: Your DockerHub access token
+- `SNYK_TOKEN`: (Optional) Snyk API token for security scanning
+
+For detailed setup instructions, see [`.github/workflows/README.md`](.github/workflows/README.md).
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

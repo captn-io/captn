@@ -38,15 +38,15 @@ RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install Python production dependencies
-COPY requirements.txt .
+COPY ../requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project files
 COPY . .
 
 # Copy scripts and cron template
-COPY docker/entrypoint.sh /app/entrypoint.sh
-COPY docker/crontab.template /app/crontab.template
+COPY ../docker/entrypoint.sh /app/entrypoint.sh
+COPY ../docker/crontab.template /app/crontab.template
 
 # Make scripts executable
 RUN chmod +x /app/entrypoint.sh
@@ -85,7 +85,7 @@ RUN apk add --no-cache \
     dcron
 
 # Install development Python packages
-COPY requirements.txt .
+COPY ../requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Create development directories

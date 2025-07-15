@@ -2,10 +2,6 @@
 
 This document outlines the planned features and improvements for the captn container updater project.
 
-
----->  docker compose??? (maybe define an update type in config?)
-
-
 ## High Priority Features
 
 ### Project Foundation
@@ -54,6 +50,7 @@ After careful consideration, **captn** was chosen as the final name because:
 - [ ] **Pre/post-update scripts** - Integrate optional pre- and post-update script execution
 - [ ] **Self-update functionality** - Implement ability for captn to update itself
 - [ ] **Container network config verification** - Verify takeover of container's network configs and tmpfs
+- [ ] **Docker Compose Support** - Evaluate and implement how captn should handle Docker Compose deployments (possibly define an update type in the configuration)
 - [x] **CLI Auto-Completion** - Provide intelligent tab-completion for commands and options
 
 ### Monitoring & Logging

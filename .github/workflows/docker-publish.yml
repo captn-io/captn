@@ -61,7 +61,7 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
-        context: .
+        context: ./app
         file: ./docker/DOCKERFILE
         platforms: linux/amd64,linux/arm64
         push: ${{ github.event_name != 'pull_request' }}
@@ -115,8 +115,19 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Pull image for Snyk scan
+      run: |
+        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
     - name: Run Snyk to check for vulnerabilities
-      continue-on-error: true # Needed as long as the repository is private
+      # continue-on-error: true # Needed as long as the repository is private
       uses: snyk/actions/docker@master
       env:
         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}

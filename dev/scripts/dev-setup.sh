@@ -78,9 +78,7 @@ else
     CHECK_FILES=(
         "docker/DOCKERFILE"
         "requirements.txt"
-        "requirements-dev.txt"
         "docker/entrypoint.sh"
-        "docker/captn.sh"
     )
 
     for file in "${CHECK_FILES[@]}"; do

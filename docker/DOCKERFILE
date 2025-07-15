@@ -38,15 +38,15 @@ RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install Python production dependencies
-COPY ../requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project files
-COPY . .
+COPY app/ .
 
-# Copy scripts and cron template
-COPY ../docker/entrypoint.sh /app/entrypoint.sh
-COPY ../docker/crontab.template /app/crontab.template
+# Copy scripts and cron template (redundant, da bereits mit COPY app/ . kopiert)
+# COPY docker/entrypoint.sh /app/entrypoint.sh
+# COPY docker/crontab.template /app/crontab.template
 
 # Make scripts executable
 RUN chmod +x /app/entrypoint.sh
@@ -56,7 +56,7 @@ RUN ln -s /app/cli/scripts/captn.sh /usr/local/bin/captn
 
 # Setup auto-completion for Docker environment
 RUN mkdir -p /etc/bash_completion.d
-COPY app/cli/scripts/captn-cli-completion.sh /etc/bash_completion.d/captn
+RUN cp /app/cli/scripts/captn-cli-completion.sh /etc/bash_completion.d/captn
 RUN chmod +x /etc/bash_completion.d/captn
 
 # Create a global completion script that works in containerized environments
@@ -85,7 +85,7 @@ RUN apk add --no-cache \
     dcron
 
 # Install development Python packages
-COPY ../requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Create development directories

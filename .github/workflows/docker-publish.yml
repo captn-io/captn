@@ -35,6 +35,15 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+    - name: Get version from app
+      id: version
+      run: |
+        VERSION=$(python -c "import app; print(app.__version__)")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "major=$(echo $VERSION | cut -d. -f1)" >> $GITHUB_OUTPUT
+        echo "minor=$(echo $VERSION | cut -d. -f2)" >> $GITHUB_OUTPUT
+        echo "patch=$(echo $VERSION | cut -d. -f3)" >> $GITHUB_OUTPUT
+
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
@@ -47,7 +56,7 @@ jobs:
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
           type=raw,value=latest,enable={{is_default_branch}}
-          type=raw,value=dev,enable={{is_default_branch}}
+          type=raw,value=${{ steps.version.outputs.version }},enable={{is_default_branch}}
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
@@ -59,7 +68,7 @@ jobs:
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         build-args: |
-          VERSION=${{ github.ref_name }}
+          VERSION=${{ steps.version.outputs.version }}
           REVISION=${{ github.sha }}
           CREATED=${{ github.event.head_commit.timestamp }}
 
@@ -107,6 +116,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Run Snyk to check for vulnerabilities
+      continue-on-error: true # Needed as long as the repository is private
       uses: snyk/actions/docker@master
       env:
         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}

@@ -46,23 +46,32 @@ Images are published to DockerHub under `captnio/captn`:
 # Pull the latest image
 docker pull captnio/captn:latest
 
-# Pull a specific version
+# Pull current version
+docker pull captnio/captn:0.5.0
+
+# Pull a specific release version
 docker pull captnio/captn:v1.0.0
 
-# Pull development build
-docker pull captnio/captn:dev
+# Pull main branch build
+docker pull captnio/captn:main
 ```
 
 ### Tagging Strategy
 
 The workflow creates the following tags:
 
+**For main branch pushes:**
 - `latest`: Latest build from main branch
-- `dev`: Development build from main branch
+- `0.5.0`: Version tag from app/__init__.py
+- `main`: Branch name tag
+
+**For release tags (v*):**
 - `v1.0.0`: Semantic version tags
-- `1.0`: Major.minor version tags
+- `1.0`: Major.minor version tags  
 - `1`: Major version tags
-- `main`: Branch name tags
+
+**For pull requests:**
+- `pr-123`: Pull request number tags (for testing)
 
 ### Security Scanning
 

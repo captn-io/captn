@@ -659,11 +659,14 @@ Images are published to DockerHub under `captnio/captn`:
 # Pull the latest image
 docker pull captnio/captn:latest
 
-# Pull a specific version
+# Pull current version
+docker pull captnio/captn:0.5.0
+
+# Pull a specific release version
 docker pull captnio/captn:v1.0.0
 
-# Pull development build
-docker pull captnio/captn:dev
+# Pull main branch build
+docker pull captnio/captn:main
 ```
 
 ### Setup Requirements

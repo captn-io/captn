@@ -648,7 +648,7 @@ This project uses GitHub Actions for continuous integration and deployment. The 
 
 - **Triggered on**: Push to `main` branch and release tags (`v*`)
 - **Multi-platform**: Supports `linux/amd64` and `linux/arm64`
-- **Security scanning**: Includes Trivy and Snyk vulnerability scanning
+- **Security scanning**: Includes Trivy vulnerability scanning (results in logs)
 - **Automated testing**: Pulls and tests built images
 
 ### Docker Images

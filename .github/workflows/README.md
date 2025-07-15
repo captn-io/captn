@@ -66,10 +66,12 @@ The workflow creates the following tags:
 
 ### Security Scanning
 
-The workflow includes two security scanning tools:
+The workflow includes security scanning tools:
 
-1. **Trivy**: Scans for vulnerabilities and uploads results to GitHub Security tab
-2. **Snyk**: Additional vulnerability scanning (requires SNYK_TOKEN secret)
+1. **Trivy**: Scans for vulnerabilities and displays results in the workflow logs
+2. **Snyk**: Additional vulnerability scanning (optional, requires SNYK_TOKEN secret)
+
+**Note**: GitHub Advanced Security (Code Scanning) is not available on free accounts, so vulnerability results are displayed in the workflow logs rather than uploaded to the Security tab.
 
 ### Manual Trigger
 

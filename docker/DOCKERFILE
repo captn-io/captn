@@ -44,9 +44,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files
 COPY app/ .
 
-# Copy scripts and cron template (redundant, da bereits mit COPY app/ . kopiert)
-# COPY docker/entrypoint.sh /app/entrypoint.sh
-# COPY docker/crontab.template /app/crontab.template
+# Copy required files from docker directory
+COPY docker/entrypoint.sh /app/entrypoint.sh
+COPY docker/crontab.template /app/crontab.template
 
 # Make scripts executable
 RUN chmod +x /app/entrypoint.sh

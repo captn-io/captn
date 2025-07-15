@@ -30,7 +30,8 @@ RUN apk add --no-cache \
     py3-pip \
     docker-cli \
     curl \
-    tzdata
+    tzdata \
+    gettext
 
 # Create python virtual environment
 ENV VIRTUAL_ENV=/opt/venv

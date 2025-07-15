@@ -38,11 +38,8 @@ printenv | grep -v "no_proxy" > /tmp/container_env.sh
 # Replace environment variable placeholders in crontab template
 envsubst < /app/crontab.template > /tmp/crontab.body
 
-# Merge exported environment variables and cronjob definition into a final crontab file
-cat /tmp/container_env.sh /tmp/crontab.body > /tmp/crontab.final
-
-# Install the new crontab from the final file
-crontab /tmp/crontab.final
+# Install the new crontab from the processed template (without environment variables)
+crontab /tmp/crontab.body
 
 # Clean up temporary files
 rm -f /tmp/container_env.sh
@@ -50,4 +47,4 @@ rm -f /tmp/crontab.body
 rm -f /tmp/crontab.final
 
 echo "[ENTRYPOINT] Starting cron daemon..."
-cron -f
+crond -f

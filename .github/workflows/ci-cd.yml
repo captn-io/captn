@@ -1,0 +1,434 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, 'dev-*' ]
+    tags: [ 'v*' ]
+    paths-ignore:
+      - '*.md'
+      - '**/*.md'
+      - 'docs/**'
+  pull_request:
+    branches: [ main, 'dev-*' ]
+    paths-ignore:
+      - '*.md'
+      - '**/*.md'
+      - 'docs/**'
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: captnio/captn
+
+jobs:
+  # Stage 1: License Check - Must pass for everything else to proceed
+  license-check:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    - name: Install pip-licenses
+      run: |
+        python -m pip install --upgrade pip
+        pip install pip-licenses
+        
+    - name: Install project dependencies
+      run: |
+        pip install -r requirements.txt
+        
+    - name: Check licenses compatibility
+      run: |
+        echo "=== Checking license compatibility with AGPL-3.0 ==="
+        echo ""
+        echo "Allowed licenses (AGPL-3.0 compatible):"
+        echo "  - Apache-2.0, Apache Software License"
+        echo "  - MIT, MIT License"
+        echo "  - BSD-2-Clause, BSD-3-Clause, BSD License"
+        echo "  - MPL-2.0, Mozilla Public License 2.0"
+        echo "  - Python Software Foundation License"
+        echo "  - ISC License (ISC)"
+        echo ""
+        
+        # Generate license report and check compatibility
+        pip-licenses \
+          --format=markdown \
+          --with-license-file \
+          --no-license-path \
+          --allow-only="\
+            Apache-2.0;\
+            Apache Software License;\
+            MIT;\
+            MIT License;\
+            BSD-2-Clause;\
+            BSD-3-Clause;\
+            BSD License;\
+            BSD;\
+            MPL-2.0;\
+            Mozilla Public License 2.0 (MPL 2.0);\
+            Python Software Foundation License;\
+            ISC;\
+            ISC License (ISCL)"
+        
+        # Check if the command succeeded
+        if [ $? -ne 0 ]; then
+          echo "❌ ERROR: Found dependencies with incompatible licenses!"
+          echo "Please review the output above and replace incompatible dependencies."
+          exit 1
+        fi
+        
+        echo ""
+        echo "✅ All dependencies are compatible with AGPL-3.0!"
+        
+    - name: Generate detailed license report
+      if: always()
+      run: |
+        echo "=== Detailed License Report ==="
+        pip-licenses --format=markdown --with-license-file --no-license-path
+        
+    - name: Generate JSON report for artifacts
+      if: always()
+      run: |
+        pip-licenses --format=json --with-license-file --no-license-path > license-report.json
+        
+    - name: Upload license report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: license-report
+        path: license-report.json
+        retention-days: 90
+
+  # Stage 2: Create Release (only on main branch)
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: license-check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    permissions:
+      contents: write
+    
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Get version from app
+      id: version
+      run: |
+        VERSION=$(python -c "import app; print(app.__version__)")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+    
+    - name: Create Release Archive
+      run: |
+        # Create a clean archive without .git
+        tar --exclude='.git' \
+            --exclude='.github' \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            --exclude='.gitignore' \
+            --exclude='app/logs/*' \
+            -czf captn-${{ steps.version.outputs.version }}.tar.gz \
+            app/ docker/ docs/ requirements.txt README.md LICENSE
+        
+        # Create checksums
+        sha256sum captn-${{ steps.version.outputs.version }}.tar.gz > captn-${{ steps.version.outputs.version }}.tar.gz.sha256
+    
+    - name: Check if release exists
+      id: check_release
+      run: |
+        if gh release view v${{ steps.version.outputs.version }} &> /dev/null; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+      env:
+        GH_TOKEN: ${{ github.token }}
+    
+    - name: Create Release
+      id: create_release
+      if: steps.check_release.outputs.exists == 'false'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ steps.version.outputs.version }}
+        name: Release v${{ steps.version.outputs.version }}
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        files: |
+          captn-${{ steps.version.outputs.version }}.tar.gz
+          captn-${{ steps.version.outputs.version }}.tar.gz.sha256
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Release Info
+      if: steps.check_release.outputs.exists == 'false'
+      run: |
+        echo "✅ Release v${{ steps.version.outputs.version }} created successfully!"
+        echo "📦 Archive: captn-${{ steps.version.outputs.version }}.tar.gz"
+
+  # Stage 3: Build and Push Docker Image (main and dev-* branches)
+  build:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: license-check
+    if: |
+      github.event_name != 'pull_request' && 
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/dev-'))
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+      actions: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Docker Hub
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Get version from app
+      id: version
+      run: |
+        VERSION=$(python -c "import app; print(app.__version__)")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "major=$(echo $VERSION | cut -d. -f1)" >> $GITHUB_OUTPUT
+        echo "minor=$(echo $VERSION | cut -d. -f2)" >> $GITHUB_OUTPUT
+        echo "patch=$(echo $VERSION | cut -d. -f3)" >> $GITHUB_OUTPUT
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=${{ steps.version.outputs.version }},enable={{is_default_branch}}
+        labels: |
+          org.opencontainers.image.title=captn
+          org.opencontainers.image.description=Automated container updates
+          org.opencontainers.image.licenses=MIT
+          org.opencontainers.image.authors=Jan Hansmeyer <jan@jk-net.com>
+          org.opencontainers.image.url=https://github.com/captn-io/captn
+          org.opencontainers.image.source=https://github.com/captn-io/captn
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./docker/DOCKERFILE
+        platforms: linux/amd64,linux/arm64
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        build-args: |
+          VERSION=${{ steps.version.outputs.version }}
+          REVISION=${{ github.sha }}
+          CREATED=${{ github.event.head_commit.timestamp }}
+
+    - name: Tag and push dev image
+      if: startsWith(github.ref_name, 'dev-') && github.event_name != 'pull_request'
+      run: |
+        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-${{ steps.version.outputs.version }}
+        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-${{ steps.version.outputs.version }}
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+        format: 'table'
+        exit-code: '0'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name != 'pull_request'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Pull and test image
+      run: |
+        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        # Test basic functionality
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest captn --help
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest captn --version
+        echo "Image test completed successfully"
+
+  security:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name != 'pull_request'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Pull image for Snyk scan
+      run: |
+        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+    - name: Run Snyk to check for vulnerabilities
+      continue-on-error: true # Needed as long as the repository is private
+      uses: snyk/actions/docker@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        args: --severity-threshold=high
+
+  # Stage 4: Update version numbers in Markdown files (only on main branch)
+  update-version-docs:
+    name: Update Version in Documentation
+    runs-on: ubuntu-latest
+    needs: [release, build]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Get version from app
+      id: version
+      run: |
+        VERSION=$(python -c "import app; print(app.__version__)")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Current version: $VERSION"
+
+    - name: Update version in Markdown files
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        
+        echo "🔍 Searching for version references in Markdown files..."
+        
+        # Find all markdown files
+        MARKDOWN_FILES=$(find . -type f -name "*.md" -not -path "./.*")
+        
+        # Pattern for version numbers (e.g., 0.8.0, 1.2.3, etc.)
+        # This will match version patterns in various contexts
+        VERSION_PATTERN='[0-9]+\.[0-9]+\.[0-9]+'
+        
+        # Create a backup of changes
+        CHANGES_MADE=false
+        
+        for file in $MARKDOWN_FILES; do
+          echo "Checking: $file"
+          
+          # Check if file contains version patterns
+          if grep -E "$VERSION_PATTERN" "$file" > /dev/null 2>&1; then
+            echo "  Found version references in $file"
+            
+            # Update Docker image version references (e.g., captnio/captn:0.8.0)
+            if grep -E "captnio/captn:[0-9]+\.[0-9]+\.[0-9]+" "$file" > /dev/null 2>&1; then
+              sed -i "s/captnio\/captn:[0-9]\+\.[0-9]\+\.[0-9]\+/captnio\/captn:$VERSION/g" "$file"
+              echo "  ✓ Updated Docker image version"
+              CHANGES_MADE=true
+            fi
+            
+            # Update version badge references (e.g., in shields.io badges)
+            if grep -E "release/v[0-9]+\.[0-9]+\.[0-9]+" "$file" > /dev/null 2>&1; then
+              sed -i "s/release\/v[0-9]\+\.[0-9]\+\.[0-9]\+/release\/v$VERSION/g" "$file"
+              echo "  ✓ Updated release badge version"
+              CHANGES_MADE=true
+            fi
+            
+            # Update download links (e.g., captn-0.8.0.tar.gz)
+            if grep -E "captn-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz" "$file" > /dev/null 2>&1; then
+              sed -i "s/captn-[0-9]\+\.[0-9]\+\.[0-9]\+\.tar\.gz/captn-$VERSION.tar.gz/g" "$file"
+              echo "  ✓ Updated download links"
+              CHANGES_MADE=true
+            fi
+          fi
+        done
+        
+        if [ "$CHANGES_MADE" = true ]; then
+          echo ""
+          echo "✅ Version numbers updated to $VERSION"
+        else
+          echo ""
+          echo "ℹ️  No version references found to update"
+        fi
+
+    - name: Check for changes
+      id: check_changes
+      run: |
+        if git diff --quiet; then
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+          echo "No changes to commit"
+        else
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "Changes detected:"
+          git diff --stat
+        fi
+
+    - name: Commit and push changes
+      if: steps.check_changes.outputs.has_changes == 'true'
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add *.md docs/*.md
+        git commit -m "chore: update version to ${{ steps.version.outputs.version }} in documentation [skip ci]"
+        git push
+
+    - name: Summary
+      run: |
+        echo "## Version Update Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📦 Version: \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ steps.check_changes.outputs.has_changes }}" = "true" ]; then
+          echo "✅ Documentation updated successfully" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "ℹ️  No documentation updates needed" >> $GITHUB_STEP_SUMMARY
+        fi

@@ -31,6 +31,18 @@
 - ⏮️ **Rollback Support** - Automatic rollback on container startup and custom post-script failures
 - ⏰ **Scheduled Execution** - Built-in scheduler with cron expression support
 
+## 🚧 Development Status
+
+> **Note**: This project is currently in an **early and active development phase**. While captn is functional and ready for testing, we're continuously improving and adding new features.
+
+**We welcome testers and contributors!** If you'd like to help shape captn, we're especially looking for contributions in:
+
+- **📝 Documentation** - Help improve guides, examples, and explanations
+- **🧪 Testing** - Test captn in different environments and report issues
+- **🏗️ Repository Optimization** - Create wiki pages, issue templates, and improve project structure
+
+Your feedback and contributions are highly valued as we work towards a stable release!
+
 ## 🚀 Quick Start
 
 ### 1. Create Directories
@@ -100,7 +112,14 @@ For detailed configuration options, advanced usage, and troubleshooting, please 
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guidelines](PLACEHOLDER_CONTRIBUTING_URL) for details.
+We welcome contributions! captn is in active development and we're particularly interested in:
+
+- **Documentation improvements** - Enhance existing docs, add examples, create tutorials
+- **Testing and bug reports** - Help us identify and fix issues
+- **Repository infrastructure** - Help create wiki pages, issue templates, PR templates, and improve project organization
+- **Code contributions** - New features, optimizations, and bug fixes
+
+Feel free to open an issue to discuss your ideas or submit a pull request directly. Every contribution, no matter how small, is appreciated!
 
 ## 📄 License
 

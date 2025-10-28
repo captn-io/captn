@@ -1,0 +1,80 @@
+FROM alpine:3.21.3
+
+ARG VERSION=unknown
+ARG REVISION=unknown
+ARG CREATED=unknown
+
+ENV VERSION=${VERSION}
+
+# Common labels
+LABEL org.opencontainers.image.title="captn" \
+      org.opencontainers.image.description="A rule-driven container updater that automates Docker container upgrades based on semantic versioning and registry metadata." \
+      org.opencontainers.image.version=$VERSION \
+      org.opencontainers.image.url="https://github.com/captn-io/captn" \
+      org.opencontainers.image.source="https://github.com/captm-io/captn" \
+      org.opencontainers.image.revision=$REVISION \
+      org.opencontainers.image.created=$CREATED \
+      org.opencontainers.image.licenses="AGPL-3.0" \
+      org.opencontainers.image.authors="Jan Hansmeyer <jan@jk-net.com>"
+
+# Set working directory
+WORKDIR /app
+
+# Install common system dependencies
+RUN apk add --no-cache \
+    coreutils \
+    bash \
+    bash-completion \
+    python3 \
+    py3-pip \
+    docker-cli \
+    curl \
+    tzdata \
+    gettext
+
+# Set bash as default shell (after bash is installed)
+SHELL ["/bin/bash", "-c"]
+
+# Create python virtual environment
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy project files
+COPY app/ .
+
+# Copy required files from docker directory
+COPY docker/entrypoint.sh /app/entrypoint.sh
+
+# Make scripts executable
+RUN chmod +x /app/entrypoint.sh
+
+# Create captn symlink
+RUN ln -s /app/cli/captn.sh /usr/local/bin/captn
+
+# Setup auto-completion for Docker environment
+RUN mkdir -p /etc/bash_completion.d
+RUN cp /app/cli/captn-cli-completion.sh /etc/bash_completion.d/captn
+RUN chmod +x /etc/bash_completion.d/captn
+
+# Create a global completion script that works in containerized environments
+RUN echo 'source /etc/bash_completion.d/captn' >> /etc/bash.bashrc
+
+# Also add to .bashrc for interactive shells
+RUN echo 'source /etc/bash_completion.d/captn' >> /root/.bashrc
+
+# Create directories
+RUN mkdir -p /app/conf /app/logs /app/data /app/tmp
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Production entrypoint and default command
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD []

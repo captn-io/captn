@@ -1,0 +1,33 @@
+# Ignore Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore Git
+.git/
+.gitignore
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Docker
+Dockerfile
+docker-compose.yml
+*.env
+*.log
+docker/build/*
+
+# VSCode settings
+.vscode/
+
+# Other
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# Captn config
+/app/conf/captn.cfg

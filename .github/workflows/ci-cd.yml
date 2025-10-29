@@ -20,10 +20,57 @@ env:
   IMAGE_NAME: captnio/captn
 
 jobs:
+  # Stage 0: Check if code changes were made (skip docs-only changes)
+  check-changes:
+    name: Check for Code Changes
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.filter.outputs.should_build }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Check changed files
+      id: filter
+      run: |
+        # Get list of changed files
+        if [ "${{ github.event_name }}" == "pull_request" ]; then
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }})
+        else
+          # For push events, compare with previous commit
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+        fi
+        
+        echo "Changed files:"
+        echo "$CHANGED_FILES"
+        
+        # Check if any non-documentation files were changed
+        SHOULD_BUILD="false"
+        
+        while IFS= read -r file; do
+          # Skip if file is markdown or in docs/ directory
+          if [[ "$file" != *.md ]] && [[ "$file" != docs/* ]]; then
+            # Skip if file is the CI/CD workflow itself
+            if [[ "$file" != .github/workflows/ci-cd.yml ]]; then
+              echo "Code change detected: $file"
+              SHOULD_BUILD="true"
+              break
+            fi
+          fi
+        done <<< "$CHANGED_FILES"
+        
+        echo "should_build=$SHOULD_BUILD" >> $GITHUB_OUTPUT
+        echo "Build required: $SHOULD_BUILD"
+
   # Stage 1: License Check - Must pass for everything else to proceed
   license-check:
     name: License Compliance Check
     runs-on: ubuntu-latest
+    needs: check-changes
+    if: needs.check-changes.outputs.should_build == 'true'
 
     steps:
     - name: Checkout code
@@ -109,8 +156,11 @@ jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: license-check
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [check-changes, license-check]
+    if: |
+      needs.check-changes.outputs.should_build == 'true' &&
+      github.ref == 'refs/heads/main' && 
+      github.event_name != 'pull_request'
     permissions:
       contents: write
 
@@ -181,8 +231,9 @@ jobs:
   build:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    needs: license-check
+    needs: [check-changes, license-check]
     if: |
+      needs.check-changes.outputs.should_build == 'true' &&
       github.event_name != 'pull_request' &&
       (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/dev-'))
     permissions:
@@ -261,8 +312,10 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name != 'pull_request'
+    needs: [check-changes, build]
+    if: |
+      needs.check-changes.outputs.should_build == 'true' &&
+      github.event_name != 'pull_request'
 
     steps:
     - name: Checkout repository
@@ -288,8 +341,10 @@ jobs:
 
   security:
     runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name != 'pull_request'
+    needs: [check-changes, build]
+    if: |
+      needs.check-changes.outputs.should_build == 'true' &&
+      github.event_name != 'pull_request'
 
     steps:
     - name: Checkout repository

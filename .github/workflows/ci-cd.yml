@@ -222,6 +222,7 @@ jobs:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
           type=ref,event=pr
+          type=ref,event=branch,prefix=dev-,enable=${{ startsWith(github.ref, 'refs/heads/dev-') }}
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
@@ -248,13 +249,6 @@ jobs:
           VERSION=${{ steps.version.outputs.version }}
           REVISION=${{ github.sha }}
           CREATED=${{ github.event.head_commit.timestamp }}
-
-    - name: Tag and push dev image
-      if: startsWith(github.ref_name, 'dev-') && github.event_name != 'pull_request'
-      run: |
-        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-        docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-${{ steps.version.outputs.version }}
-        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-${{ steps.version.outputs.version }}
 
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master

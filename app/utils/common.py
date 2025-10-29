@@ -121,6 +121,8 @@ def detect_version_scheme(version: str) -> str:
     """
     version = ".".join(str(p) for p in normalize_version(version)) # convert tuple from normalize_version back to string
 
+    logging.debug(f"Trying to determine version schema for {version}", extra={"indent": 1})
+
     # Check for date-based versioning schemes
     #
     # This pattern matches versions in the format:
@@ -168,6 +170,9 @@ def compare_versions(old_version: str, new_version: str) -> Tuple[str, str]:
     """
     old_scheme = detect_version_scheme(old_version)
     new_scheme = detect_version_scheme(new_version)
+
+    logging.debug(f"Detected version schema for {old_version}: {old_scheme}", extra={"indent": 1})
+    logging.debug(f"Detected version schema for {new_version}: {new_scheme}", extra={"indent": 1})
 
     # If schemes are different, this might be a versioning scheme change
     if old_scheme != new_scheme:

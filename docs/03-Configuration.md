@@ -200,7 +200,7 @@ Delay between processing updates for the same container (progressive upgrades).
 
 - **Type:** Duration
 - **Default:** `2m`
-- **Minimum:** `1s`
+- **Minimum:** `0s`
 
 **Purpose:** Prevents overwhelming the system and allows time for verification between progressive updates.
 
@@ -224,7 +224,7 @@ Maximum time to wait for a container to become stable after update.
 
 - **Type:** Duration
 - **Default:** `480s` (8 minutes)
-- **Minimum:** `10s`
+- **Minimum:** `0s`
 
 **Example:**
 ```ini
@@ -238,7 +238,7 @@ Time a container must remain in a healthy state before considering the update su
 
 - **Type:** Duration
 - **Default:** `15s`
-- **Minimum:** `5s`
+- **Minimum:** `0s`
 
 **Example:**
 ```ini
@@ -252,7 +252,7 @@ Interval between stability checks during update verification.
 
 - **Type:** Duration
 - **Default:** `5s`
-- **Minimum:** `1s`
+- **Minimum:** `0s`
 
 **Example:**
 ```ini
@@ -323,7 +323,7 @@ removeOldContainers = true
 
 **Backup Container Identification:**
 Backup containers are identified by:
-- Container name contains `_bak_cu_` (backup container-updater)
+- Container name contains `_bak_cu_` (\_**ba**c**k**up_**c**aptn_**u**pdater)
 - Container status is "exited"
 - Container name ends with timestamp: `YYYYMMDD-HHMMSS`
 
@@ -1488,8 +1488,8 @@ Whether to apply multiple version updates progressively.
 - **Default:** `false`
 
 **Options:**
-- `true`: Apply updates one at a time (1.0 → 1.1 → 1.2 → 2.0)
-- `false`: Jump directly to latest allowed version (1.0 → 2.0)
+- `true`: Apply all available updates sequentially in a single captn run (1.0 → 1.1 → 1.2 → 2.0)
+- `false`: Apply only the next available update per captn run; skip remaining updates until the next run (1.0 → 1.1)
 
 **Example:**
 ```json
@@ -1509,7 +1509,7 @@ Defines which update types are allowed.
 - `patch`: Patch version updates (1.1.1 → 1.1.2)
 - `build`: Build version updates (1.1.1-1 → 1.1.1-2)
 - `digest`: Digest updates (same tag, different image)
-- `scheme_change`: Versioning scheme changes (1.2.3 → 2024.01.15)
+- `scheme_change`: Versioning scheme changes (see below)
 
 **Example:**
 ```json
@@ -1522,6 +1522,55 @@ Defines which update types are allowed.
     "scheme_change": false
 }
 ```
+
+#### Update Type Details
+
+##### Major, Minor, Patch, Build
+
+Standard semantic versioning updates following the `MAJOR.MINOR.PATCH[-BUILD]` format:
+- **Major** (1.x.x → 2.x.x): Breaking changes, API incompatibilities
+- **Minor** (1.1.x → 1.2.x): New features, backward compatible
+- **Patch** (1.1.1 → 1.1.2): Bug fixes, security patches
+- **Build** (1.1.1-1 → 1.1.1-2): Build metadata changes
+
+##### Digest
+
+Digest updates occur when the image tag remains the same but the underlying image content has changed:
+- Same version tag, different image digest
+- Common with rolling tags like `latest`, `stable`, `main`
+- Indicates image rebuild or republishing
+
+**Example:**
+```
+Version: nginx:latest
+Old digest: sha256:abc123...
+New digest: sha256:def456...
+Update type: digest
+```
+
+##### Scheme Change
+
+Scheme changes occur when a project switches its versioning strategy. captn detects the following schemes:
+
+**Detected Schemes:**
+- **Semantic**: Standard semantic versioning (e.g., `1.2.3`, `2.15.7`)
+- **Date**: Date-based versioning (e.g., `2024.01.15`, `2023.12.25`)
+- **Numeric**: Simple numeric versioning (e.g., `1`, `2`, `10`)
+
+**Common Scheme Changes:**
+- Semantic → Date: `1.2.3` → `2024.01.15`
+- Date → Semantic: `2023.12.25` → `1.0.0`
+- Numeric → Semantic: `10` → `1.0.0`
+
+**Why This Matters:**
+
+Scheme changes are inherently risky because:
+- Version comparison becomes unreliable
+- Automatic updates may skip or select wrong versions
+- Project may have restructured significantly
+- Breaking changes are likely
+
+**Recommendation:** Keep `scheme_change: false` in most rules to prevent automatic updates during scheme transitions. Manually verify and update containers when versioning schemes change.
 
 ### `conditions`
 
@@ -1539,7 +1588,7 @@ Conditional requirements for allowing specific update types.
 }
 ```
 
-**Purpose:** Only allow an update type if other versions also exist.
+**Purpose:** Only allow an update type if at **least one** of the required update types also exists.
 
 **Example:**
 ```json
@@ -1554,7 +1603,7 @@ Conditional requirements for allowing specific update types.
 ```
 
 **Meaning:**
-- Major updates only if minor, patch, and build versions also exist
+- Major updates only if minor, patch, **or** build versions also exist
 - Minor updates only if patch version also exists
 
 ### `lagPolicy`
@@ -1599,147 +1648,578 @@ Here's a complete configuration example with all sections:
 # ===================
 
 [general]
+# Enable dry-run mode (no actual container updates will be performed)
+# This is useful for testing and seeing what captn would do without making changes
+# Possible values: true, false
+# Default: false
 dryRun = false
+
+# Cron schedule for automatic updates when running in daemon mode
+# Format: minute hour day month weekday
+# Examples:
+#   "30 2 * * *"     - Daily at 2:30 AM
+#   "0 */6 * * *"    - Every 6 hours
+#   "*/5 * * * *"    - Every 5 minutes
+#   "0 2 * * 0"      - Weekly on Sunday at 2:00 AM
+# Default: "30 2 * * *" (daily at 2:30 AM)
 cronSchedule = 30 2 * * *
 
-[logging]
-level = INFO
-
 [notifiers]
-enabled = true
+# Enable/disable all notifications globally
+# Possible values: true, false
+# Default: false
+enabled = false
 
 [notifiers.telegram]
-enabled = true
-token = 123456789:ABCdefGHIjklMNOpqrsTUVwxyz
-chatId = 123456789
+# Enable Telegram notifications
+# Possible values: true, false
+# Default: false
+enabled = false
+# Telegram bot token (from @BotFather)
+token =
+# Telegram chat ID (can be user or group)
+chatId =
 
 [notifiers.email]
+# Enable email notifications
+# This enables SMTP-based email notifications with detailed HTML reports
+# Possible values: true, false
+# Default: false
 enabled = false
-smtpServer = smtp.gmail.com
+# SMTP server address
+# The hostname or IP address of your SMTP server
+# Common examples: smtp.gmail.com, smtp.strato.de, mail.yourdomain.com
+# Possible values: String (hostname or IP address)
+#   Examples: smtp.gmail.com, smtp.strato.de, mail.yourdomain.com
+# Default: "" (empty)
+smtpServer =
+# SMTP server port
+# The port number for SMTP communication
+# Common ports: 587 (TLS), 465 (SSL), 25 (unencrypted, not recommended)
+# Possible values: Integer
+#   Common: 587 (TLS), 465 (SSL)
+#   Examples: 587, 465, 25
+# Default: 587
 smtpPort = 587
-username = your-email@gmail.com
-password = your-app-password
-fromAddr = captn@yourdomain.com
-toAddr = admin@yourdomain.com
+# SMTP username
+# Your email account username for SMTP authentication
+# For Gmail, use your full email address
+# For other providers, check their documentation
+# Possible values: String
+#   Examples: your-email@gmail.com, username@yourdomain.com
+# Default: "" (empty)
+username =
+# SMTP password
+# Your email account password or app-specific password
+# For Gmail, use an App Password (not your regular password)
+# For other providers, use your account password or app password
+# Possible values: String
+#   Examples: your-app-password, your-account-password
+# Default: "" (empty)
+password =
+# Sender address
+# The email address that will appear as the sender
+# Should match your SMTP account or be authorized to send from this address
+# Possible values: String (valid email address)
+#   Examples: captn@yourdomain.com, your-email@gmail.com
+# Default: "" (empty)
+fromAddr =
+# Recipient address
+# The email address that will receive the update reports
+# Can be the same as fromAddr or a different address
+# Possible values: String (valid email address)
+#   Examples: admin@yourdomain.com, your-email@gmail.com
+# Default: "" (empty)
+toAddr =
+# SMTP connection timeout in seconds
+# This prevents the application from hanging if the SMTP server is slow to respond
+# Increase this value if you experience timeout issues with slow SMTP servers
+# Possible values: Integer
+#   Minimum: 10
+#   Maximum: 300
+#   Examples: 30, 60, 120
+# Default: 30
+timeout = 30
 
 [update]
+# Delay between container updates to avoid overwhelming the system
+# This prevents too many containers from being updated simultaneously
+# Possible values: Duration format (number + unit: s=seconds, m=minutes, h=hours, d=days)
+#   Minimum: 1s
+#   Maximum: -
+#   Examples: "30s", "2m", "1h", "24h"
+# Default: "2m" (2 minutes)
 delayBetweenUpdates = 2m
 
 [updateVerification]
+# Maximum time to wait for a container to become stable after update
+# If container doesn't become stable within this time, it's considered failed
+# Possible values: Duration format (number + unit: s=seconds, m=minutes, h=hours, d=days)
+#   Minimum: 10s
+#   Maximum: -
+#   Examples: "60s", "5m", "10m", "30m"
+# Default: "480s" (8 minutes)
 maxWait = 480s
+
+# Time a container must remain stable before considering the update successful
+# This helps ensure the container is truly stable and not just temporarily running
+# Possible values: Duration format (number + unit: s=seconds, m=minutes, h=hours, d=days)
+#   Minimum: 5s
+#   Maximum: -
+#   Examples: "10s", "30s", "1m", "2m"
+# Default: "15s" (15 seconds)
 stableTime = 15s
+
+# Interval between stability checks during update verification
+# Shorter intervals provide faster feedback but use more resources
+# Possible values: Duration format (number + unit: s=seconds, m=minutes, h=hours, d=days)
+#   Minimum: 1s
+#   Maximum: -
+#   Examples: "2s", "5s", "10s", "30s"
+# Default: "5s" (5 seconds)
 checkInterval = 5s
+
+# Additional time to wait after container becomes stable before proceeding
+# This provides a buffer to catch any late failures
+# Possible values: Duration format (number + unit: s=seconds, m=minutes, h=hours, d=days)
+#   Minimum: 0s
+#   Maximum: -
+#   Examples: "5s", "15s", "30s", "1m"
+# Default: "15s" (15 seconds)
 gracePeriod = 15s
 
 [prune]
-removeUnusedImages = true
+# Remove unused Docker images after successful updates
+# This helps keep the system clean and save disk space
+# Possible values: true, false
+# Default: false
+removeUnusedImages = false
+
+# Remove old stopped containers after successful updates
+# This helps maintain a clean container environment
+#
+# Backup containers are identified by:
+# - Container name contains "_bak_cu_" (backup container-updater)
+# - Container status is "exited"
+# - Container name ends with timestamp format: YYYYMMDD-HHMMSS
+# Example backup container names: "myapp_bak_cu_20241201-143022"
+#
+# Only containers older than minBackupAge and meeting the minimum backup count
+# requirements will be removed.
+# Possible values: true, false
+# Default: true
 removeOldContainers = true
+
+# Minimum age a backed up container must reach before it can be deleted
+# Backup containers younger than this value will always be kept, regardless of other settings
+# Possible values: Duration format (number + unit: s=seconds, m=minutes, h=hours, d=days)
+#   Minimum: 0s (immediate deletion allowed)
+#   Maximum: -
+#   Examples: "1h", "6h", "24h", "48h", "7d"
+# Default: "48h" (48 hours)
 minBackupAge = 48h
-minBackupsToKeep = 2
+
+# Minimum number of backups to keep for each container
+# Even if backups are older than minBackupAge, this many will be preserved
+# Possible values: Integer
+#   Minimum: 0 (no backups kept)
+#   Maximum: -
+#   Examples: 0, 1, 3, 5, 10
+# Default: 1
+minBackupsToKeep = 1
 
 [selfUpdate]
+# Remove helper containers after successful self-updates
+# Helper containers are temporary containers created during self-update operations
+# to perform the actual update of the captn container itself
+# Possible values: true, false
+#   true:  Helper container is automatically removed after completion (default)
+#   false: Helper container remain for manual inspection
+# Default: true
 removeHelperContainer = true
 
 [preScripts]
+# Enable pre-update script execution
+# Pre-scripts are executed before container updates and can perform tasks like
+# backups, health checks, or other preparatory actions
+# Possible values: true, false
+# Default: true
 enabled = true
+
+# Directory containing pre-update scripts
+# Scripts can be container-specific (e.g., "myapp_pre.sh") or generic ("pre.sh")
+# Container-specific scripts take precedence over generic scripts
+# Default: /app/conf/scripts
 scriptsDirectory = /app/conf/scripts
-timeout = 10m
+
+# Timeout for pre-script execution in seconds
+# If a script doesn't complete within this time, it will be terminated
+# Possible values: Duration format (number + unit: s=seconds, m=minutes, h=hours, d=days)
+#   Minimum: 0s (immediate deletion allowed)
+#   Maximum: -
+#   Examples: "30s", "5m", "1h", "1d"
+# Default: 5m (5 minutes)
+timeout = 5m
+
+# Whether to continue with the update if pre-script fails
+# If false, the update process will be aborted when pre-script fails
+# If true, the update will proceed even if pre-script fails
+# Possible values: true, false
+# Default: false (abort on failure)
 continueOnFailure = false
 
 [postScripts]
+# Enable post-update script execution
+# Post-scripts are executed after successful container updates and can perform
+# tasks like health checks, notifications, or cleanup actions
+# Possible values: true, false
+# Default: true
 enabled = true
+
+# Directory containing post-update scripts
+# Scripts can be container-specific (e.g., "myapp_post.sh") or generic ("post.sh")
+# Container-specific scripts take precedence over generic scripts
+# Default: /app/conf/scripts
 scriptsDirectory = /app/conf/scripts
-timeout = 10m
+
+# Timeout for post-script execution in seconds
+# If a script doesn't complete within this time, it will be terminated
+# Possible values: Duration format (number + unit: s=seconds, m=minutes, h=hours, d=days)
+#   Minimum: 0s (immediate deletion allowed)
+#   Maximum: -
+#   Examples: "30s", "5m", "1h", "1d"
+# Default: 5m (5 minutes)
+timeout = 5m
+
+# Whether to rollback the container if post-script fails
+# If true, the container will be rolled back to the previous version if post-script fails
+# If false, the update will be considered successful even if post-script fails
+# Possible values: true, false
+# Default: true (rollback on failure)
 rollbackOnFailure = true
 
 [docker]
+# Docker Hub API URL for fetching image metadata
+# Usually doesn't need to be changed unless using a custom registry
+# Possible values: Valid HTTP/HTTPS URL
+#   Examples: "https://registry.hub.docker.com/v2", "https://custom.registry.com/v2"
+# Default: "https://registry.hub.docker.com/v2"
 apiUrl = https://registry.hub.docker.com/v2
+
+# Maximum number of pages to crawl when searching for images
+# Higher values allow finding older images but increase API usage
+# Possible values: Integer
+#   Minimum: 1
+#   Maximum: 1000
+#   Examples: 100, 500, 1000
+# Default: 1000
 pageCrawlLimit = 1000
+
+# Number of images to fetch per API request
+# Higher values reduce API calls but increase memory usage
+# Possible values: Integer
+#   Minimum: 1
+#   Maximum: 100
+#   Examples: 10, 50, 100
+# Default: 100
 pageSize = 100
 
 [ghcr]
+# GitHub Container Registry API URL for fetching image metadata
+# Usually doesn't need to be changed
+# Possible values: Valid HTTP/HTTPS URL
+#   Examples: "https://ghcr.io/v2", "https://custom.ghcr.com/v2"
+# Default: "https://ghcr.io/v2"
 apiUrl = https://ghcr.io/v2
+
+# Maximum number of pages to crawl when searching for images
+# Higher values allow finding older images but increase API usage
+# Possible values: Integer
+#   Minimum: 1
+#   Maximum: 1000
+#   Examples: 100, 500, 1000
+# Default: 1000
 pageCrawlLimit = 1000
+
+# Number of images to fetch per API request
+# Higher values reduce API calls but increase memory usage
+# Possible values: Integer
+#   Minimum: 1
+#   Maximum: 100
+#   Examples: 10, 50, 100
+# Default: 100
 pageSize = 100
 
+[logging]
+# Logging level for captn
+# Possible values: DEBUG, INFO, WARNING, ERROR, CRITICAL
+#   DEBUG:      Most verbose, shows all details
+#   INFO:       Standard information level (recommended)
+#   WARNING:    Only warnings and errors
+#   ERROR:      Only errors
+#   CRITICAL:   Only critical errors
+# Default: "INFO"
+level = INFO
+
 [registryAuth]
+# Enable registry authentication for private container repositories
+# This allows captn to authenticate with private registries using credentials
+# Possible values: true, false
+# Default: false
 enabled = false
+
+# Path to a JSON file containing registry credentials.
+# The file must be a JSON object with two top-level keys: "registries" and "repositories".
+# - "registries" maps registry API URLs to their authentication credentials (username/password or token).
+# - "repositories" maps specific image repository names to their credentials, which override registry-level credentials.
+# Example:
+# {
+#     "registries": {
+#         "https://registry.hub.docker.com/v2": {
+#             "username": "your_dockerhub_username",
+#             "password": "your_dockerhub_password_or_token"
+#         },
+#         "https://ghcr.io/v2": {
+#             "token": "your_github_personal_access_token"
+#         }
+#     },
+#     "repositories": {
+#         "captnio/captn": {
+#             "username": "captnio",
+#             "password": "specific_token_for_captn"
+#         },
+#         "myorg/private-repo": {
+#             "token": "specific_token_for_private_repo"
+#         }
+#     }
+# }
+# If both "registries" and "repositories" are present, repository credentials take precedence for matching images.
+# Default: /app/conf/registry-credentials.json
 credentialsFile = /app/conf/registry-credentials.json
 
 [envFiltering]
+# Enable environment variable filtering during container recreation
+# This feature filters out environment variables that come from the image
+# and should not be preserved during container updates
+# Possible values: true, false
+# Default: true
 enabled = true
-excludePatterns = [
-    "BUILD_*",
-    "GIT_*"
-]
-preservePatterns = [
-    "TZ",
-    "PUID",
-    "PGID",
-    "UMASK"
-]
-containerSpecificRules = {
-    "immich": {
-        "excludePatterns": [
-            "IMMICH_BUILD_*"
-        ],
-        "preservePatterns": [
-            "IMMICH_ENV"
-        ]
-    }
-}
+
+# Patterns for environment variables that should be excluded from container recreation
+# These variables are typically build-time variables or system variables that
+# should not be preserved when recreating containers with new images
+# Format: JSON array of string patterns (supports wildcards: *, ?, [])
+# Examples: "IMMICH_BUILD_*", "NODE_VERSION", "BUILD_*", "GIT_*"
+# Default: None
+#
+# Examples:
+# excludePatterns = [
+#     "IMMICH_BUILD_*",
+#     "NODE_VERSION"
+# ]
+
+# Patterns for environment variables that should always be preserved
+# These variables are typically configuration variables that should
+# always be kept when recreating containers
+# Format: JSON array of string patterns (supports wildcards: *, ?, [])
+# Examples: "DB_*", "REDIS_*", "TZ", "PASSWORD"
+# Default: None
+#
+# Examples:
+# preservePatterns = [
+#     "TZ",
+#     "PUID",
+#     "PGID",
+#     "UMASK",
+#     "DB_*"
+# ]
+
+# Container-specific environment variable filtering rules
+# These rules override the global patterns for specific containers
+# Format: JSON object with container names as keys
+# Container names are matched using case-insensitive substring matching
+# Example: "immich" will match "immich-server", "immich-api", etc.
+# Default: None
+#
+# Examples:
+# containerSpecificRules = {
+#     "immich": {
+#         "excludePatterns": [
+#             "IMMICH_BUILD_*",
+#             "IMMICH_SOURCE_*",
+#             "IMMICH_REPOSITORY_*"
+#         ],
+#         "preservePatterns": [
+#             "IMMICH_ENV",
+#             "IMMICH_LOG_LEVEL",
+#             "IMMICH_MACHINE_LEARNING_URL"
+#         ]
+#     }
+# }
 
 [assignmentsByName]
-# Production databases
-postgres-prod = conservative
-mysql-prod = conservative
-mariadb-prod = conservative
-
-# Production web servers
-nginx-prod = patch_only
-apache-prod = patch_only
-
-# Production caches
-redis-prod = permissive
-memcached-prod = permissive
-
-# Development containers
-dev-* = permissive
-
-# Staging containers
-staging-* = relaxed
+# Direct rule assignments by container name
+# This allows you to assign rules to containers
+# Format: container_name = rule_name
+#
+# Examples:
+# MariaDB = conservative
+# PostgreSQL = strict
+# redis = permissive
 
 [rules]
-# Custom rule for critical services
-critical_service = {
-    "minImageAge": "48h",
-    "progressiveUpgrade": true,
-    "allow": {
-        "major": false,
-        "minor": false,
-        "patch": true,
-        "build": false,
-        "digest": true,
-        "scheme_change": false
-    },
-    "lagPolicy": {
-        "major": 1
-    }
-}
+# Rule definitions for update behavior
+# Each rule is a JSON object that defines update policies
+# Rules can be referenced by name in container labels or command line
 
-# Custom rule for test services
-test_service = {
-    "minImageAge": "1h",
-    "progressiveUpgrade": false,
-    "allow": {
-        "major": true,
-        "minor": true,
-        "patch": true,
-        "build": true,
-        "digest": true,
-        "scheme_change": true
-    }
-}
+# Default rule - conservative approach
+# Only allows patch updates with strict verification
+default =       {
+                    "minImageAge": "3h",
+                    "progressiveUpgrade": false,
+                    "allow": {
+                        "major": false,
+                        "minor": false,
+                        "patch": false,
+                        "build": false,
+                        "digest": false,
+                        "scheme_change": false
+                    }
+                }
+
+# Relaxed rule - allows more updates with progressive upgrade
+# Allows major, minor, and patch updates with conditions
+relaxed =       {
+                    "minImageAge": "3h",
+                    "progressiveUpgrade": true,
+                    "allow": {
+                        "major": true,
+                        "minor": true,
+                        "patch": true,
+                        "build": true,
+                        "digest": true,
+                        "scheme_change": false
+                    },
+                    "conditions": {
+                        "major": {
+                            "require": ["minor", "patch", "build"]
+                        }
+                    }
+                }
+
+# Permissive rule - allows all update types
+# Most permissive rule, use with caution
+permissive =    {
+                    "minImageAge": "3h",
+                    "progressiveUpgrade": true,
+                    "allow": {
+                        "major": true,
+                        "minor": true,
+                        "patch": true,
+                        "build": true,
+                        "digest": true,
+                        "scheme_change": false
+                    }
+                }
+
+# Strict rule - very conservative
+# Only allows updates when explicitly configured
+strict =        {
+                    "minImageAge": "3h",
+                    "progressiveUpgrade": false,
+                    "allow": {
+                        "major": false,
+                        "minor": false,
+                        "patch": false,
+                        "build": false,
+                        "digest": false,
+                        "scheme_change": false
+                    }
+                }
+
+# Patch-only rule - only patch updates
+# Good for production environments
+patch_only =    {
+                    "minImageAge": "3h",
+                    "progressiveUpgrade": true,
+                    "allow": {
+                        "major": false,
+                        "minor": false,
+                        "patch": true,
+                        "build": false,
+                        "digest": false,
+                        "scheme_change": false
+                    }
+                }
+
+# Security-only rule - patch and digest updates
+# Focuses on security updates only
+security_only = {
+                    "minImageAge": "3h",
+                    "progressiveUpgrade": true,
+                    "allow": {
+                        "major": false,
+                        "minor": false,
+                        "patch": true,
+                        "build": false,
+                        "digest": true,
+                        "scheme_change": false
+                    }
+                }
+
+# Digest-only rule - only digest updates
+# Focuses on updates that change the image digest only
+digest_only =  {
+                    "minImageAge": "24h",
+                    "progressiveUpgrade": true,
+                    "allow": {
+                        "major": false,
+                        "minor": false,
+                        "patch": false,
+                        "build": false,
+                        "digest": true,
+                        "scheme_change": false
+                    }
+                }
+
+# CI/CD rule - minor, patch, and build updates
+# Good for development and CI/CD environments
+ci_cd =         {
+                    "minImageAge": "3h",
+                    "progressiveUpgrade": true,
+                    "allow": {
+                        "major": false,
+                        "minor": true,
+                        "patch": true,
+                        "build": true,
+                        "digest": false,
+                        "scheme_change": false
+                    },
+                    "conditions": {
+                        "minor": {
+                            "require": ["patch"]
+                        }
+                    }
+                }
+
+# Conservative rule - patch and build updates with lag
+# Conservative approach with longer image age requirement
+conservative =  {
+                    "minImageAge": "24h",
+                    "progressiveUpgrade": true,
+                    "allow": {
+                        "major": false,
+                        "minor": false,
+                        "patch": true,
+                        "build": true,
+                        "digest": false,
+                        "scheme_change": false
+                    },
+                    "lagPolicy": {
+                        "major": 1
+                    }
+                }
+
 ```
 
 ---

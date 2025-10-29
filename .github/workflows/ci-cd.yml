@@ -24,25 +24,25 @@ jobs:
   license-check:
     name: License Compliance Check
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-        
+
     - name: Install pip-licenses
       run: |
         python -m pip install --upgrade pip
         pip install pip-licenses
-        
+
     - name: Install project dependencies
       run: |
         pip install -r requirements.txt
-        
+
     - name: Check licenses compatibility
       run: |
         echo "=== Checking license compatibility with AGPL-3.0 ==="
@@ -55,7 +55,7 @@ jobs:
         echo "  - Python Software Foundation License"
         echo "  - ISC License (ISC)"
         echo ""
-        
+
         # Generate license report and check compatibility
         pip-licenses \
           --format=markdown \
@@ -75,28 +75,28 @@ jobs:
             Python Software Foundation License;\
             ISC;\
             ISC License (ISCL)"
-        
+
         # Check if the command succeeded
         if [ $? -ne 0 ]; then
           echo "❌ ERROR: Found dependencies with incompatible licenses!"
           echo "Please review the output above and replace incompatible dependencies."
           exit 1
         fi
-        
+
         echo ""
         echo "✅ All dependencies are compatible with AGPL-3.0!"
-        
+
     - name: Generate detailed license report
       if: always()
       run: |
         echo "=== Detailed License Report ==="
         pip-licenses --format=markdown --with-license-file --no-license-path
-        
+
     - name: Generate JSON report for artifacts
       if: always()
       run: |
         pip-licenses --format=json --with-license-file --no-license-path > license-report.json
-        
+
     - name: Upload license report
       if: always()
       uses: actions/upload-artifact@v4
@@ -113,22 +113,22 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     permissions:
       contents: write
-    
+
     outputs:
       version: ${{ steps.version.outputs.version }}
       upload_url: ${{ steps.create_release.outputs.upload_url }}
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-    
+
     - name: Get version from app
       id: version
       run: |
         VERSION=$(python -c "import app; print(app.__version__)")
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "Version: $VERSION"
-    
+
     - name: Create Release Archive
       run: |
         # Create a clean archive without .git
@@ -140,10 +140,10 @@ jobs:
             --exclude='app/logs/*' \
             -czf captn-${{ steps.version.outputs.version }}.tar.gz \
             app/ docker/ docs/ requirements.txt README.md LICENSE
-        
+
         # Create checksums
         sha256sum captn-${{ steps.version.outputs.version }}.tar.gz > captn-${{ steps.version.outputs.version }}.tar.gz.sha256
-    
+
     - name: Check if release exists
       id: check_release
       run: |
@@ -154,7 +154,7 @@ jobs:
         fi
       env:
         GH_TOKEN: ${{ github.token }}
-    
+
     - name: Create Release
       id: create_release
       if: steps.check_release.outputs.exists == 'false'
@@ -170,7 +170,7 @@ jobs:
           captn-${{ steps.version.outputs.version }}.tar.gz.sha256
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
+
     - name: Release Info
       if: steps.check_release.outputs.exists == 'false'
       run: |
@@ -183,7 +183,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: license-check
     if: |
-      github.event_name != 'pull_request' && 
+      github.event_name != 'pull_request' &&
       (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/dev-'))
     permissions:
       contents: read
@@ -324,35 +324,6 @@ jobs:
         image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         args: --severity-threshold=high
 
-  # Stage 4a: Update Docker Hub README (only on main branch)
-  update-dockerhub-readme:
-    name: Update Docker Hub README
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    permissions:
-      contents: read
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Update Docker Hub Description
-      uses: peter-evans/dockerhub-description@v4
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-        repository: ${{ env.IMAGE_NAME }}
-        short-description: ${{ github.event.repository.description }}
-        readme-filepath: ./README.md
-
-    - name: Summary
-      run: |
-        echo "## Docker Hub README Update" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "✅ Docker Hub README updated successfully" >> $GITHUB_STEP_SUMMARY
-        echo "🔗 [View on Docker Hub](https://hub.docker.com/r/${{ env.IMAGE_NAME }})" >> $GITHUB_STEP_SUMMARY
-
   # Stage 5: Update version numbers in Markdown files (only on main branch)
   update-version-docs:
     name: Update Version in Documentation
@@ -378,40 +349,40 @@ jobs:
     - name: Update version in Markdown files
       run: |
         VERSION="${{ steps.version.outputs.version }}"
-        
+
         echo "🔍 Searching for version references in Markdown files..."
-        
+
         # Find all markdown files
         MARKDOWN_FILES=$(find . -type f -name "*.md" -not -path "./.*")
-        
+
         # Pattern for version numbers (e.g., 0.8.0, 1.2.3, etc.)
         # This will match version patterns in various contexts
         VERSION_PATTERN='[0-9]+\.[0-9]+\.[0-9]+'
-        
+
         # Create a backup of changes
         CHANGES_MADE=false
-        
+
         for file in $MARKDOWN_FILES; do
           echo "Checking: $file"
-          
+
           # Check if file contains version patterns
           if grep -E "$VERSION_PATTERN" "$file" > /dev/null 2>&1; then
             echo "  Found version references in $file"
-            
+
             # Update Docker image version references (e.g., captnio/captn:0.8.0)
             if grep -E "captnio/captn:[0-9]+\.[0-9]+\.[0-9]+" "$file" > /dev/null 2>&1; then
               sed -i "s/captnio\/captn:[0-9]\+\.[0-9]\+\.[0-9]\+/captnio\/captn:$VERSION/g" "$file"
               echo "  ✓ Updated Docker image version"
               CHANGES_MADE=true
             fi
-            
+
             # Update version badge references (e.g., in shields.io badges)
             if grep -E "release/v[0-9]+\.[0-9]+\.[0-9]+" "$file" > /dev/null 2>&1; then
               sed -i "s/release\/v[0-9]\+\.[0-9]\+\.[0-9]\+/release\/v$VERSION/g" "$file"
               echo "  ✓ Updated release badge version"
               CHANGES_MADE=true
             fi
-            
+
             # Update download links (e.g., captn-0.8.0.tar.gz)
             if grep -E "captn-[0-9]+\.[0-9]+\.[0-9]+\.tar\.gz" "$file" > /dev/null 2>&1; then
               sed -i "s/captn-[0-9]\+\.[0-9]\+\.[0-9]\+\.tar\.gz/captn-$VERSION.tar.gz/g" "$file"
@@ -420,7 +391,7 @@ jobs:
             fi
           fi
         done
-        
+
         if [ "$CHANGES_MADE" = true ]; then
           echo ""
           echo "✅ Version numbers updated to $VERSION"
@@ -460,4 +431,164 @@ jobs:
           echo "✅ Documentation updated successfully" >> $GITHUB_STEP_SUMMARY
         else
           echo "ℹ️  No documentation updates needed" >> $GITHUB_STEP_SUMMARY
+        fi
+
+  # Stage 6: Update Docker Hub README (only on main branch)
+  update-dockerhub-readme:
+    name: Update Docker Hub README
+    runs-on: ubuntu-latest
+    needs: [update-version-docs]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Update Docker Hub Description
+      uses: peter-evans/dockerhub-description@v4
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+        repository: ${{ env.IMAGE_NAME }}
+        short-description: ${{ github.event.repository.description }}
+        readme-filepath: ./README.md
+
+    - name: Summary
+      run: |
+        echo "## Docker Hub README Update" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Docker Hub README updated successfully" >> $GITHUB_STEP_SUMMARY
+        echo "🔗 [View on Docker Hub](https://hub.docker.com/r/${{ env.IMAGE_NAME }})" >> $GITHUB_STEP_SUMMARY
+
+  # Stage 7: Update configuration example in documentation (only on main branch)
+  update-config-docs:
+    name: Update Configuration Example
+    runs-on: ubuntu-latest
+    needs: [update-version-docs]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        ref: main
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Update configuration example in documentation
+      run: |
+        python3 << 'EOF'
+        import sys
+        import re
+
+        # Read the config.py file to extract example_content
+        with open('app/utils/config.py', 'r', encoding='utf-8') as f:
+            config_content = f.read()
+
+        # Extract the example_content string
+        # Find the start: example_content = """
+        start_marker = 'example_content = """'
+        start_idx = config_content.find(start_marker)
+        if start_idx == -1:
+            print("ERROR: Could not find example_content in config.py")
+            sys.exit(1)
+
+        # Find the end: the closing """
+        start_idx += len(start_marker)
+        end_marker = '"""'
+        end_idx = config_content.find(end_marker, start_idx)
+        if end_idx == -1:
+            print("ERROR: Could not find closing marker for example_content")
+            sys.exit(1)
+
+        # Extract the full example content
+        example_content = config_content[start_idx:end_idx]
+
+        # Find the [general] section (start of actual config)
+        lines = example_content.split('\n')
+        config_start = None
+        for i, line in enumerate(lines):
+            if line.strip() == '[general]':
+                config_start = i
+                break
+
+        if config_start is None:
+            print("ERROR: Could not find [general] section in example_content")
+            sys.exit(1)
+
+        # Extract everything from [general] onwards
+        config_example = '\n'.join(lines[config_start:])
+
+        # Read the documentation file
+        with open('docs/03-Configuration.md', 'r', encoding='utf-8') as f:
+            doc_content = f.read()
+
+        # Find the configuration example section
+        # Look for: ```ini followed by # captn Configuration
+        doc_start_marker = '```ini\n# captn Configuration\n# ==================='
+        doc_start_idx = doc_content.find(doc_start_marker)
+        if doc_start_idx == -1:
+            print("ERROR: Could not find configuration example start marker in documentation")
+            sys.exit(1)
+
+        # Find the end: next ``` after the start marker
+        search_start = doc_start_idx + len(doc_start_marker)
+        doc_end_marker = '\n```'
+        doc_end_idx = doc_content.find(doc_end_marker, search_start)
+        if doc_end_idx == -1:
+            print("ERROR: Could not find configuration example end marker in documentation")
+            sys.exit(1)
+
+        # Build the new content
+        new_doc_content = (
+            doc_content[:doc_start_idx + len(doc_start_marker)] +
+            '\n\n' +
+            config_example +
+            doc_content[doc_end_idx:]
+        )
+
+        # Write the updated documentation
+        with open('docs/03-Configuration.md', 'w', encoding='utf-8') as f:
+            f.write(new_doc_content)
+
+        print("✅ Configuration example updated successfully in docs/03-Configuration.md")
+        EOF
+
+    - name: Check for changes
+      id: check_changes
+      run: |
+        if git diff --quiet docs/03-Configuration.md; then
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+          echo "No changes to commit"
+        else
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "Changes detected:"
+          git diff --stat docs/03-Configuration.md
+        fi
+
+    - name: Commit and push changes
+      if: steps.check_changes.outputs.has_changes == 'true'
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add docs/03-Configuration.md
+        git commit -m "chore: update configuration example in documentation [skip ci]"
+        git push
+
+    - name: Summary
+      run: |
+        echo "## Configuration Example Update" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ steps.check_changes.outputs.has_changes }}" = "true" ]; then
+          echo "✅ Configuration example updated successfully" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "ℹ️  No configuration example updates needed" >> $GITHUB_STEP_SUMMARY
         fi

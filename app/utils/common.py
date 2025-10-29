@@ -121,19 +121,26 @@ def detect_version_scheme(version: str) -> str:
     """
     version = ".".join(str(p) for p in normalize_version(version)) # convert tuple from normalize_version back to string
 
+    logging.debug(f"Trying to determine version schema for {version}", extra={"indent": 2})
+
     # Check for date-based versioning schemes
     #
     # This pattern matches versions in the format:
+    # - YYYY.M.DD.X
+    # - YYYY.MM.D.X
+    # - YYYY.M.D.X
     # - YYYY.MM.DD.X
     #
     # Where:
     # - YYYY: 4-digit year starting with "20" (2000-2099)
     # - MM: Month (01-12)
     # - DD: Day (01-31)
+    # - M: Month (1-9)
+    # - D: Day (1-9)
     # - X: Patch/build numbers (any number of digits, can be empty)
     #
     # The X placeholder represents patch and build numbers that are always appended by normalize_version
-    date_pattern = r'^(20)\d{2}\.(0[1-9]|1[0-2])\.(0[1-9]|[12]\d|3[01])\.([0-9]*)$'
+    date_pattern = r'^(20)\d{2}\.([1-9]|0[1-9]|1[0-2])\.([1-9]|0[1-9]|[12]\d|3[01])\.([0-9]*)$'
     if re.match(date_pattern, version):
         return 'date'
 
@@ -168,6 +175,9 @@ def compare_versions(old_version: str, new_version: str) -> Tuple[str, str]:
     """
     old_scheme = detect_version_scheme(old_version)
     new_scheme = detect_version_scheme(new_version)
+
+    logging.debug(f"Detected version schema for {old_version}: {old_scheme}", extra={"indent": 2})
+    logging.debug(f"Detected version schema for {new_version}: {new_scheme}", extra={"indent": 2})
 
     # If schemes are different, this might be a versioning scheme change
     if old_scheme != new_scheme:

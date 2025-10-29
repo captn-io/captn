@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="app/assets/icons/app-icon.svg" alt="captn logo" width="120" height="120">
+  <img src="https://raw.githubusercontent.com/captn-io/captn/main/app/assets/icons/app-icon.svg" alt="captn logo" width="120" height="120">
   <h1>captn</h1>
   <p><strong>Intelligent Container Updater</strong></p>
 </div>
@@ -103,12 +103,17 @@ Get updates about captn's activities:
 
 #### Currently supported notification methods
 
-- **Telegram**: Real-time notifications via Telegram Bot API
+- **Telegram**: Quick update summaries via Telegram Bot API
 - **E-Mail**: SMTP-based email notifications with detailed HTML reports
 
 ## 📚 Documentation
 
-For detailed configuration options, advanced usage, and troubleshooting, please refer to the [Configuration Documentation](https://github.com/captn-io/captn/blob/main/docs/03-Configuration.md) and [Wiki](https://github.com/captn-io/captn/blob/main/docs/01-Introduction.md).
+For detailed configuration options, advanced usage, and troubleshooting, please refer to:
+
+- **[Introduction & Getting Started](https://github.com/captn-io/captn/blob/main/docs/01-Introduction.md)** - Overview and concepts
+- **[CLI Reference](https://github.com/captn-io/captn/blob/main/docs/02-CLI-Reference.md)** - Command-line usage
+- **[Configuration Reference](https://github.com/captn-io/captn/blob/main/docs/03-Configuration.md)** - All configuration options
+- **[Scripts Guide](https://github.com/captn-io/captn/blob/main/docs/04-Scripts.md)** - Pre/post-update scripts
 
 ## 🤝 Contributing
 
@@ -127,8 +132,8 @@ This project is licensed under the **GNU Affero General Public License v3.0 (AGP
 
 ## 💬 Support
 
-- **Issues**: [GitHub Issues](PLACEHOLDER_ISSUES_URL)
-- **Discussions**: [GitHub Discussions](PLACEHOLDER_DISCUSSIONS_URL)
+- **Issues**: [GitHub Issues](https://github.com/captn-io/captn/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/captn-io/captn/discussions)
 - **Documentation**: [Docs](https://github.com/captn-io/captn/blob/main/docs/01-Introduction.md)
 
 ---

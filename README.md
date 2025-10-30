@@ -64,7 +64,7 @@ docker run -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v ~/captn/conf:/app/conf \
   -v ~/captn/logs:/app/logs \
-  captnio/captn:0.8.1
+  captnio/captn:0.8.2
 ```
 
 ### 3. First Run (Dry-Run Mode)

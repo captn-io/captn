@@ -522,13 +522,13 @@ jobs:
         import sys
         import re
 
-        # Read the config.py file to extract example_content
+        # Read the config.py file to extract example_content from create_example_config function
         with open('app/utils/config.py', 'r', encoding='utf-8') as f:
             config_content = f.read()
 
-        # Extract the example_content string
-        # Find the start: example_content = """
-        start_marker = 'example_content = """'
+        # Find the create_example_config function and extract example_content
+        # Look for: example_content = f"""
+        start_marker = 'example_content = f"""'
         start_idx = config_content.find(start_marker)
         if start_idx == -1:
             print("ERROR: Could not find example_content in config.py")

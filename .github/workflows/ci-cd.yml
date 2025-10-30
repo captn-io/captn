@@ -282,11 +282,16 @@ jobs:
           type=raw,value=${{ steps.version.outputs.version }},enable={{is_default_branch}}
         labels: |
           org.opencontainers.image.title=captn
-          org.opencontainers.image.description=Automated container updates
-          org.opencontainers.image.licenses=MIT
+          org.opencontainers.image.description=Intelligent, rule-based container updater that automatically manages container updates using semantic versioning and registry metadata
+          org.opencontainers.image.vendor=captn.io
+          org.opencontainers.image.licenses=AGPL-3.0
+          org.opencontainers.image.version=${{ steps.version.outputs.version }}
           org.opencontainers.image.authors=Jan Hansmeyer <jan@jk-net.com>
           org.opencontainers.image.url=https://github.com/captn-io/captn
           org.opencontainers.image.source=https://github.com/captn-io/captn
+          org.opencontainers.image.documentation=https://github.com/captn-io/captn/blob/main/README.md
+          org.opencontainers.image.base.name=docker.io/library/alpine:3.21.3
+          maintainer=Jan Hansmeyer <jan@jk-net.com>
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5

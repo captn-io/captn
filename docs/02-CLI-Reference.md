@@ -303,7 +303,7 @@ docker run -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v ~/captn/conf:/app/conf \
   -v ~/captn/logs:/app/logs \
-  captnio/captn:0.8.0
+  captnio/captn:0.8.1
 ```
 
 **Note:** The captn Docker image runs in daemon mode by default. The `--daemon` flag is already configured internally and does not need to be specified.
@@ -510,7 +510,7 @@ docker run -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v ~/captn/conf:/app/conf \
   -v ~/captn/logs:/app/logs \
-  captnio/captn:0.8.0
+  captnio/captn:0.8.1
 ```
 
 **Note:** The captn Docker image is pre-configured to run in daemon mode. No additional parameters are needed.
@@ -578,7 +578,7 @@ docker run -d \
   -e TZ=Europe/Berlin \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v ~/captn/conf:/app/conf \
-  captnio/captn:0.8.0 \
+  captnio/captn:0.8.1 \
   captn --daemon
 ```
 
@@ -593,7 +593,7 @@ captn requires access to the Docker socket to manage containers.
 docker run -d \
   --name captn \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  captnio/captn:0.8.0 \
+  captnio/captn:0.8.1 \
   captn --daemon
 ```
 
@@ -658,7 +658,7 @@ docker run -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v ~/captn/conf:/app/conf \
   -v ~/captn/logs:/app/logs \
-  captnio/captn:0.8.0 \
+  captnio/captn:0.8.1 \
   captn --daemon
 ```
 

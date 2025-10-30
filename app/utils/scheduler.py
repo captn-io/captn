@@ -49,7 +49,7 @@ class CaptnScheduler:
         self.running = True
         self.thread = threading.Thread(target=self.run_scheduler, daemon=True)
         self.thread.start()
-        logger.info("Captn scheduler started")
+        logger.info("captn scheduler started")
 
     def stop(self):
         """
@@ -62,7 +62,7 @@ class CaptnScheduler:
             self.running = False
         if self.thread:
             self.thread.join(timeout=5)
-        logger.info("Captn scheduler stopped")
+        logger.info("captn scheduler stopped")
 
     def run_scheduler(self):
         """
@@ -146,12 +146,12 @@ class CaptnScheduler:
             ], timeout=18000)  # 5 hours timeout
 
             if result.returncode == 0:
-                logger.info("Captn execution completed successfully")
+                logger.info("captn execution completed successfully")
             else:
-                logger.error(f"Captn execution failed with return code {result.returncode}")
+                logger.error(f"captn execution failed with return code {result.returncode}")
 
         except subprocess.TimeoutExpired:
-            logger.error("Captn execution timed out after 5 hours")
+            logger.error("captn execution timed out after 5 hours")
         except Exception as e:
             logger.error(f"Error executing captn: {e}")
 

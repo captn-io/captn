@@ -15,7 +15,7 @@ LABEL org.opencontainers.image.title="captn" \
       org.opencontainers.image.revision=$REVISION \
       org.opencontainers.image.created=$CREATED \
       org.opencontainers.image.licenses="AGPL-3.0" \
-      org.opencontainers.image.authors="Jan Hansmeyer <jan@jk-net.com>"
+      org.opencontainers.image.authors="JanJK <jan@jk-net.com>"
 
 # Set working directory
 WORKDIR /app

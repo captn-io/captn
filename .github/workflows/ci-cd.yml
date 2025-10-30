@@ -2,14 +2,14 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, 'dev-*' ]
+    branches: [ main, 'dev-*', 'feature-*', 'hotfix-*', 'release-*', '^[0-9]*.[0-9]*.[0-9]*$' ]
     tags: [ 'v*' ]
     paths-ignore:
       - '*.md'
       - '**/*.md'
       - 'docs/**'
   pull_request:
-    branches: [ main, 'dev-*' ]
+    branches: [ main, 'dev-*', 'feature-*', 'hotfix-*', 'release-*', '^[0-9]*.[0-9]*.[0-9]*$' ]
     paths-ignore:
       - '*.md'
       - '**/*.md'
@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should_build: ${{ steps.filter.outputs.should_build }}
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -43,13 +43,13 @@ jobs:
           # For push events, compare with previous commit
           CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
         fi
-        
+
         echo "Changed files:"
         echo "$CHANGED_FILES"
-        
+
         # Check if any non-documentation files were changed
         SHOULD_BUILD="false"
-        
+
         while IFS= read -r file; do
           # Skip if file is markdown or in docs/ directory
           if [[ "$file" != *.md ]] && [[ "$file" != docs/* ]]; then
@@ -61,7 +61,7 @@ jobs:
             fi
           fi
         done <<< "$CHANGED_FILES"
-        
+
         echo "should_build=$SHOULD_BUILD" >> $GITHUB_OUTPUT
         echo "Build required: $SHOULD_BUILD"
 
@@ -159,7 +159,7 @@ jobs:
     needs: [check-changes, license-check]
     if: |
       needs.check-changes.outputs.should_build == 'true' &&
-      github.ref == 'refs/heads/main' && 
+      github.ref == 'refs/heads/main' &&
       github.event_name != 'pull_request'
     permissions:
       contents: write
@@ -235,7 +235,7 @@ jobs:
     if: |
       needs.check-changes.outputs.should_build == 'true' &&
       github.event_name != 'pull_request' &&
-      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/dev-'))
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/dev-') || startsWith(github.ref, 'refs/heads/feature-') || startsWith(github.ref, 'refs/heads/hotfix-') || startsWith(github.ref, 'refs/heads/release-') || startsWith(github.ref, 'refs/tags/v[0-9]*.[0-9]*.[0-9]*'))
     permissions:
       contents: read
       packages: write
@@ -274,15 +274,14 @@ jobs:
         tags: |
           type=ref,event=pr
           type=ref,event=branch,prefix=dev-,enable=${{ startsWith(github.ref, 'refs/heads/dev-') }}
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=semver,pattern={{major}}
-          type=raw,value=latest,enable={{is_default_branch}}
-          type=raw,value=${{ steps.version.outputs.version }},enable={{is_default_branch}}
+          type=ref,event=branch,prefix=feature-,enable=${{ startsWith(github.ref, 'refs/heads/feature-') }}
+          type=ref,event=branch,prefix=hotfix-,enable=${{ startsWith(github.ref, 'refs/heads/hotfix-') }}
+          type=ref,event=branch,prefix=release-,enable=${{ startsWith(github.ref, 'refs/heads/release-') }}
+          type=ref,event=tag,pattern=v[0-9]*.[0-9]*.[0-9]*
         labels: |
           org.opencontainers.image.title=captn
           org.opencontainers.image.description=Automated container updates
-          org.opencontainers.image.licenses=MIT
+          org.opencontainers.image.licenses=AGPL-3.0
           org.opencontainers.image.authors=Jan Hansmeyer <jan@jk-net.com>
           org.opencontainers.image.url=https://github.com/captn-io/captn
           org.opencontainers.image.source=https://github.com/captn-io/captn
@@ -620,7 +619,7 @@ jobs:
     needs: [update-config-docs]
     if: |
       always() &&
-      github.ref == 'refs/heads/main' && 
+      github.ref == 'refs/heads/main' &&
       github.event_name != 'pull_request'
     permissions:
       contents: read

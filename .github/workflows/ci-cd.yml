@@ -283,7 +283,7 @@ jobs:
           org.opencontainers.image.title=captn
           org.opencontainers.image.description=Automated container updates
           org.opencontainers.image.licenses=MIT
-          org.opencontainers.image.authors=Jan Hansmeyer <jan@jk-net.com>
+          org.opencontainers.image.authors=captn.io <captn-io@jk-net.com>
           org.opencontainers.image.url=https://github.com/captn-io/captn
           org.opencontainers.image.source=https://github.com/captn-io/captn
 

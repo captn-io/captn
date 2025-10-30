@@ -227,7 +227,7 @@ jobs:
         echo "✅ Release v${{ steps.version.outputs.version }} created successfully!"
         echo "📦 Archive: captn-${{ steps.version.outputs.version }}.tar.gz"
 
-  # Stage 3: Build and Push Docker Image (main and dev-* branches)
+  # Stage 3: Build and Push Docker Image (main, dev-* and release-* branches)
   build:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
@@ -235,7 +235,7 @@ jobs:
     if: |
       needs.check-changes.outputs.should_build == 'true' &&
       github.event_name != 'pull_request' &&
-      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/dev-'))
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/dev-') || startsWith(github.ref, 'refs/heads/release-'))
     permissions:
       contents: read
       packages: write
@@ -274,6 +274,7 @@ jobs:
         tags: |
           type=ref,event=pr
           type=ref,event=branch,prefix=dev-,enable=${{ startsWith(github.ref, 'refs/heads/dev-') }}
+          type=ref,event=branch,prefix=release-,enable=${{ startsWith(github.ref, 'refs/heads/release-') }}
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}

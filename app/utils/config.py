@@ -718,13 +718,35 @@ def create_example_config(example_path: str = "/app/conf/captn.example.cfg"):
     This function generates a comprehensive example configuration file that includes
     all available configuration options with detailed descriptions and their default values.
     It ensures the example config file is always up-to-date with the latest configuration
-    options and their documentation.
+    options and their documentation by dynamically reading from DEFAULTS.
 
     Parameters:
         example_path (str): Path where the example configuration file should be created
     """
 
-    example_content = """# captn Configuration Example
+    # Helper function to format JSON values with proper indentation
+    def format_value(value, indent=16):
+        """Format a configuration value, handling JSON strings with proper indentation"""
+        if isinstance(value, str) and (value.strip().startswith('{') or value.strip().startswith('[')):
+            # It's a JSON string - parse and format it
+            try:
+                parsed = json.loads(value)
+                formatted = json.dumps(parsed, indent=4)
+                # Indent each line appropriately
+                lines = formatted.split('\n')
+                if len(lines) == 1:
+                    return value
+                # First line stays as is, others get indented
+                result_lines = [lines[0]]
+                for line in lines[1:]:
+                    result_lines.append(' ' * indent + line)
+                return '\n'.join(result_lines)
+            except json.JSONDecodeError:
+                return value
+        return value
+
+    # Start building the config content
+    example_content = f"""# captn Configuration Example
 # ===========================
 #
 # This file contains all available configuration options for captn with detailed
@@ -741,8 +763,8 @@ def create_example_config(example_path: str = "/app/conf/captn.example.cfg"):
 # Enable dry-run mode (no actual container updates will be performed)
 # This is useful for testing and seeing what captn would do without making changes
 # Possible values: true, false
-# Default: false
-dryRun = false
+# Default: {DEFAULTS['general']['dryRun']}
+dryRun =
 
 # Cron schedule for automatic updates when running in daemon mode
 # Format: minute hour day month weekday
@@ -751,20 +773,20 @@ dryRun = false
 #   "0 */6 * * *"    - Every 6 hours
 #   "*/5 * * * *"    - Every 5 minutes
 #   "0 2 * * 0"      - Weekly on Sunday at 2:00 AM
-# Default: "30 2 * * *" (daily at 2:30 AM)
-cronSchedule = 30 2 * * *
+# Default: "{DEFAULTS['general']['cronSchedule']}" (daily at 2:30 AM)
+cronSchedule =
 
 [notifiers]
 # Enable/disable all notifications globally
 # Possible values: true, false
-# Default: false
-enabled = false
+# Default: {DEFAULTS['notifiers']['enabled']}
+enabled =
 
 [notifiers.telegram]
 # Enable Telegram notifications
 # Possible values: true, false
-# Default: false
-enabled = false
+# Default: {DEFAULTS['notifiers.telegram']['enabled']}
+enabled =
 # Telegram bot token (from @BotFather)
 token =
 # Telegram chat ID (can be user or group)
@@ -774,14 +796,14 @@ chatId =
 # Enable email notifications
 # This enables SMTP-based email notifications with detailed HTML reports
 # Possible values: true, false
-# Default: false
-enabled = false
+# Default: {DEFAULTS['notifiers.email']['enabled']}
+enabled =
 # SMTP server address
 # The hostname or IP address of your SMTP server
 # Common examples: smtp.gmail.com, smtp.strato.de, mail.yourdomain.com
 # Possible values: String (hostname or IP address)
 #   Examples: smtp.gmail.com, smtp.strato.de, mail.yourdomain.com
-# Default: "" (empty)
+# Default: "{DEFAULTS['notifiers.email']['smtpServer']}"
 smtpServer =
 # SMTP server port
 # The port number for SMTP communication
@@ -789,15 +811,15 @@ smtpServer =
 # Possible values: Integer
 #   Common: 587 (TLS), 465 (SSL)
 #   Examples: 587, 465, 25
-# Default: 587
-smtpPort = 587
+# Default: {DEFAULTS['notifiers.email']['smtpPort']}
+smtpPort =
 # SMTP username
 # Your email account username for SMTP authentication
 # For Gmail, use your full email address
 # For other providers, check their documentation
 # Possible values: String
 #   Examples: your-email@gmail.com, username@yourdomain.com
-# Default: "" (empty)
+# Default: "{DEFAULTS['notifiers.email']['username']}"
 username =
 # SMTP password
 # Your email account password or app-specific password
@@ -805,21 +827,21 @@ username =
 # For other providers, use your account password or app password
 # Possible values: String
 #   Examples: your-app-password, your-account-password
-# Default: "" (empty)
+# Default: "{DEFAULTS['notifiers.email']['password']}"
 password =
 # Sender address
 # The email address that will appear as the sender
 # Should match your SMTP account or be authorized to send from this address
 # Possible values: String (valid email address)
 #   Examples: captn@yourdomain.com, your-email@gmail.com
-# Default: "" (empty)
+# Default: "{DEFAULTS['notifiers.email']['fromAddr']}"
 fromAddr =
 # Recipient address
 # The email address that will receive the update reports
 # Can be the same as fromAddr or a different address
 # Possible values: String (valid email address)
 #   Examples: admin@yourdomain.com, your-email@gmail.com
-# Default: "" (empty)
+# Default: "{DEFAULTS['notifiers.email']['toAddr']}"
 toAddr =
 # SMTP connection timeout in seconds
 # This prevents the application from hanging if the SMTP server is slow to respond
@@ -828,8 +850,8 @@ toAddr =
 #   Minimum: 10
 #   Maximum: 300
 #   Examples: 30, 60, 120
-# Default: 30
-timeout = 30
+# Default: {DEFAULTS['notifiers.email']['timeout']}
+timeout =
 
 [update]
 # Delay between container updates to avoid overwhelming the system
@@ -838,8 +860,8 @@ timeout = 30
 #   Minimum: 1s
 #   Maximum: -
 #   Examples: "30s", "2m", "1h", "24h"
-# Default: "2m" (2 minutes)
-delayBetweenUpdates = 2m
+# Default: "{DEFAULTS['update']['delayBetweenUpdates']}" (2 minutes)
+delayBetweenUpdates =
 
 [updateVerification]
 # Maximum time to wait for a container to become stable after update
@@ -848,8 +870,8 @@ delayBetweenUpdates = 2m
 #   Minimum: 10s
 #   Maximum: -
 #   Examples: "60s", "5m", "10m", "30m"
-# Default: "480s" (8 minutes)
-maxWait = 480s
+# Default: "{DEFAULTS['updateVerification']['maxWait']}" (8 minutes)
+maxWait =
 
 # Time a container must remain stable before considering the update successful
 # This helps ensure the container is truly stable and not just temporarily running
@@ -857,8 +879,8 @@ maxWait = 480s
 #   Minimum: 5s
 #   Maximum: -
 #   Examples: "10s", "30s", "1m", "2m"
-# Default: "15s" (15 seconds)
-stableTime = 15s
+# Default: "{DEFAULTS['updateVerification']['stableTime']}" (15 seconds)
+stableTime =
 
 # Interval between stability checks during update verification
 # Shorter intervals provide faster feedback but use more resources
@@ -866,8 +888,8 @@ stableTime = 15s
 #   Minimum: 1s
 #   Maximum: -
 #   Examples: "2s", "5s", "10s", "30s"
-# Default: "5s" (5 seconds)
-checkInterval = 5s
+# Default: "{DEFAULTS['updateVerification']['checkInterval']}" (5 seconds)
+checkInterval =
 
 # Additional time to wait after container becomes stable before proceeding
 # This provides a buffer to catch any late failures
@@ -875,15 +897,15 @@ checkInterval = 5s
 #   Minimum: 0s
 #   Maximum: -
 #   Examples: "5s", "15s", "30s", "1m"
-# Default: "15s" (15 seconds)
-gracePeriod = 15s
+# Default: "{DEFAULTS['updateVerification']['gracePeriod']}" (15 seconds)
+gracePeriod =
 
 [prune]
 # Remove unused Docker images after successful updates
 # This helps keep the system clean and save disk space
 # Possible values: true, false
-# Default: false
-removeUnusedImages = false
+# Default: {DEFAULTS['prune']['removeUnusedImages']}
+removeUnusedImages =
 
 # Remove old stopped containers after successful updates
 # This helps maintain a clean container environment
@@ -897,8 +919,8 @@ removeUnusedImages = false
 # Only containers older than minBackupAge and meeting the minimum backup count
 # requirements will be removed.
 # Possible values: true, false
-# Default: true
-removeOldContainers = true
+# Default: {DEFAULTS['prune']['removeOldContainers']}
+removeOldContainers =
 
 # Minimum age a backed up container must reach before it can be deleted
 # Backup containers younger than this value will always be kept, regardless of other settings
@@ -906,8 +928,8 @@ removeOldContainers = true
 #   Minimum: 0s (immediate deletion allowed)
 #   Maximum: -
 #   Examples: "1h", "6h", "24h", "48h", "7d"
-# Default: "48h" (48 hours)
-minBackupAge = 48h
+# Default: "{DEFAULTS['prune']['minBackupAge']}" (48 hours)
+minBackupAge =
 
 # Minimum number of backups to keep for each container
 # Even if backups are older than minBackupAge, this many will be preserved
@@ -915,8 +937,8 @@ minBackupAge = 48h
 #   Minimum: 0 (no backups kept)
 #   Maximum: -
 #   Examples: 0, 1, 3, 5, 10
-# Default: 1
-minBackupsToKeep = 1
+# Default: {DEFAULTS['prune']['minBackupsToKeep']}
+minBackupsToKeep =
 
 [selfUpdate]
 # Remove helper containers after successful self-updates
@@ -925,22 +947,22 @@ minBackupsToKeep = 1
 # Possible values: true, false
 #   true:  Helper container is automatically removed after completion (default)
 #   false: Helper container remain for manual inspection
-# Default: true
-removeHelperContainer = true
+# Default: {DEFAULTS['selfUpdate']['removeHelperContainer']}
+removeHelperContainer =
 
 [preScripts]
 # Enable pre-update script execution
 # Pre-scripts are executed before container updates and can perform tasks like
 # backups, health checks, or other preparatory actions
 # Possible values: true, false
-# Default: true
-enabled = true
+# Default: {DEFAULTS['preScripts']['enabled']}
+enabled =
 
 # Directory containing pre-update scripts
 # Scripts can be container-specific (e.g., "myapp_pre.sh") or generic ("pre.sh")
 # Container-specific scripts take precedence over generic scripts
-# Default: /app/conf/scripts
-scriptsDirectory = /app/conf/scripts
+# Default: {DEFAULTS['preScripts']['scriptsDirectory']}
+scriptsDirectory =
 
 # Timeout for pre-script execution in seconds
 # If a script doesn't complete within this time, it will be terminated
@@ -948,29 +970,29 @@ scriptsDirectory = /app/conf/scripts
 #   Minimum: 0s (immediate deletion allowed)
 #   Maximum: -
 #   Examples: "30s", "5m", "1h", "1d"
-# Default: 5m (5 minutes)
-timeout = 5m
+# Default: {DEFAULTS['preScripts']['timeout']} (5 minutes)
+timeout =
 
 # Whether to continue with the update if pre-script fails
 # If false, the update process will be aborted when pre-script fails
 # If true, the update will proceed even if pre-script fails
 # Possible values: true, false
-# Default: false (abort on failure)
-continueOnFailure = false
+# Default: {DEFAULTS['preScripts']['continueOnFailure']} (abort on failure)
+continueOnFailure =
 
 [postScripts]
 # Enable post-update script execution
 # Post-scripts are executed after successful container updates and can perform
 # tasks like health checks, notifications, or cleanup actions
 # Possible values: true, false
-# Default: true
-enabled = true
+# Default: {DEFAULTS['postScripts']['enabled']}
+enabled =
 
 # Directory containing post-update scripts
 # Scripts can be container-specific (e.g., "myapp_post.sh") or generic ("post.sh")
 # Container-specific scripts take precedence over generic scripts
-# Default: /app/conf/scripts
-scriptsDirectory = /app/conf/scripts
+# Default: {DEFAULTS['postScripts']['scriptsDirectory']}
+scriptsDirectory =
 
 # Timeout for post-script execution in seconds
 # If a script doesn't complete within this time, it will be terminated
@@ -978,23 +1000,23 @@ scriptsDirectory = /app/conf/scripts
 #   Minimum: 0s (immediate deletion allowed)
 #   Maximum: -
 #   Examples: "30s", "5m", "1h", "1d"
-# Default: 5m (5 minutes)
-timeout = 5m
+# Default: {DEFAULTS['postScripts']['timeout']} (5 minutes)
+timeout =
 
 # Whether to rollback the container if post-script fails
 # If true, the container will be rolled back to the previous version if post-script fails
 # If false, the update will be considered successful even if post-script fails
 # Possible values: true, false
-# Default: true (rollback on failure)
-rollbackOnFailure = true
+# Default: {DEFAULTS['postScripts']['rollbackOnFailure']} (rollback on failure)
+rollbackOnFailure =
 
 [docker]
 # Docker Hub API URL for fetching image metadata
 # Usually doesn't need to be changed unless using a custom registry
 # Possible values: Valid HTTP/HTTPS URL
 #   Examples: "https://registry.hub.docker.com/v2", "https://custom.registry.com/v2"
-# Default: "https://registry.hub.docker.com/v2"
-apiUrl = https://registry.hub.docker.com/v2
+# Default: "{DEFAULTS['docker']['apiUrl']}"
+apiUrl =
 
 # Maximum number of pages to crawl when searching for images
 # Higher values allow finding older images but increase API usage
@@ -1002,8 +1024,8 @@ apiUrl = https://registry.hub.docker.com/v2
 #   Minimum: 1
 #   Maximum: 1000
 #   Examples: 100, 500, 1000
-# Default: 1000
-pageCrawlLimit = 1000
+# Default: {DEFAULTS['docker']['pageCrawlLimit']}
+pageCrawlLimit =
 
 # Number of images to fetch per API request
 # Higher values reduce API calls but increase memory usage
@@ -1011,16 +1033,16 @@ pageCrawlLimit = 1000
 #   Minimum: 1
 #   Maximum: 100
 #   Examples: 10, 50, 100
-# Default: 100
-pageSize = 100
+# Default: {DEFAULTS['docker']['pageSize']}
+pageSize =
 
 [ghcr]
 # GitHub Container Registry API URL for fetching image metadata
 # Usually doesn't need to be changed
 # Possible values: Valid HTTP/HTTPS URL
 #   Examples: "https://ghcr.io/v2", "https://custom.ghcr.com/v2"
-# Default: "https://ghcr.io/v2"
-apiUrl = https://ghcr.io/v2
+# Default: "{DEFAULTS['ghcr']['apiUrl']}"
+apiUrl =
 
 # Maximum number of pages to crawl when searching for images
 # Higher values allow finding older images but increase API usage
@@ -1028,8 +1050,8 @@ apiUrl = https://ghcr.io/v2
 #   Minimum: 1
 #   Maximum: 1000
 #   Examples: 100, 500, 1000
-# Default: 1000
-pageCrawlLimit = 1000
+# Default: {DEFAULTS['ghcr']['pageCrawlLimit']}
+pageCrawlLimit =
 
 # Number of images to fetch per API request
 # Higher values reduce API calls but increase memory usage
@@ -1037,8 +1059,8 @@ pageCrawlLimit = 1000
 #   Minimum: 1
 #   Maximum: 100
 #   Examples: 10, 50, 100
-# Default: 100
-pageSize = 100
+# Default: {DEFAULTS['ghcr']['pageSize']}
+pageSize =
 
 [logging]
 # Logging level for captn
@@ -1048,52 +1070,52 @@ pageSize = 100
 #   WARNING:    Only warnings and errors
 #   ERROR:      Only errors
 #   CRITICAL:   Only critical errors
-# Default: "INFO"
-level = INFO
+# Default: "{DEFAULTS['logging']['level']}"
+level =
 
 [registryAuth]
 # Enable registry authentication for private container repositories
 # This allows captn to authenticate with private registries using credentials
 # Possible values: true, false
-# Default: false
-enabled = false
+# Default: {DEFAULTS['registryAuth']['enabled']}
+enabled =
 
 # Path to a JSON file containing registry credentials.
 # The file must be a JSON object with two top-level keys: "registries" and "repositories".
 # - "registries" maps registry API URLs to their authentication credentials (username/password or token).
 # - "repositories" maps specific image repository names to their credentials, which override registry-level credentials.
 # Example:
-# {
-#     "registries": {
-#         "https://registry.hub.docker.com/v2": {
+# {{
+#     "registries": {{
+#         "https://registry.hub.docker.com/v2": {{
 #             "username": "your_dockerhub_username",
 #             "password": "your_dockerhub_password_or_token"
-#         },
-#         "https://ghcr.io/v2": {
+#         }},
+#         "https://ghcr.io/v2": {{
 #             "token": "your_github_personal_access_token"
-#         }
-#     },
-#     "repositories": {
-#         "captnio/captn": {
+#         }}
+#     }},
+#     "repositories": {{
+#         "captnio/captn": {{
 #             "username": "captnio",
 #             "password": "specific_token_for_captn"
-#         },
-#         "myorg/private-repo": {
+#         }},
+#         "myorg/private-repo": {{
 #             "token": "specific_token_for_private_repo"
-#         }
-#     }
-# }
+#         }}
+#     }}
+# }}
 # If both "registries" and "repositories" are present, repository credentials take precedence for matching images.
-# Default: /app/conf/registry-credentials.json
-credentialsFile = /app/conf/registry-credentials.json
+# Default: {DEFAULTS['registryAuth']['credentialsFile']}
+credentialsFile = {DEFAULTS['registryAuth']['credentialsFile']}
 
 [envFiltering]
 # Enable environment variable filtering during container recreation
 # This feature filters out environment variables that come from the image
 # and should not be preserved during container updates
 # Possible values: true, false
-# Default: true
-enabled = true
+# Default: {DEFAULTS['envFiltering']['enabled']}
+enabled =
 
 # Patterns for environment variables that should be excluded from container recreation
 # These variables are typically build-time variables or system variables that
@@ -1132,8 +1154,8 @@ enabled = true
 # Default: None
 #
 # Examples:
-# containerSpecificRules = {
-#     "immich": {
+# containerSpecificRules = {{
+#     "immich": {{
 #         "excludePatterns": [
 #             "IMMICH_BUILD_*",
 #             "IMMICH_SOURCE_*",
@@ -1144,10 +1166,10 @@ enabled = true
 #             "IMMICH_LOG_LEVEL",
 #             "IMMICH_MACHINE_LEARNING_URL"
 #         ]
-#     }
-# }
+#     }}
+# }}
 
-[assignmentsByName]
+[assignments]
 # Direct rule assignments by container name
 # This allows you to assign rules to containers
 # Format: container_name = rule_name
@@ -1164,151 +1186,39 @@ enabled = true
 
 # Default rule - conservative approach
 # Only allows patch updates with strict verification
-default =       {
-                    "minImageAge": "3h",
-                    "progressiveUpgrade": false,
-                    "allow": {
-                        "major": false,
-                        "minor": false,
-                        "patch": false,
-                        "build": false,
-                        "digest": false,
-                        "scheme_change": false
-                    }
-                }
+default =       {format_value(DEFAULTS['rules']['default'])}
 
 # Relaxed rule - allows more updates with progressive upgrade
 # Allows major, minor, and patch updates with conditions
-relaxed =       {
-                    "minImageAge": "3h",
-                    "progressiveUpgrade": true,
-                    "allow": {
-                        "major": true,
-                        "minor": true,
-                        "patch": true,
-                        "build": true,
-                        "digest": true,
-                        "scheme_change": false
-                    },
-                    "conditions": {
-                        "major": {
-                            "require": ["minor", "patch", "build"]
-                        }
-                    }
-                }
+relaxed =       {format_value(DEFAULTS['rules']['relaxed'])}
 
 # Permissive rule - allows all update types
 # Most permissive rule, use with caution
-permissive =    {
-                    "minImageAge": "3h",
-                    "progressiveUpgrade": true,
-                    "allow": {
-                        "major": true,
-                        "minor": true,
-                        "patch": true,
-                        "build": true,
-                        "digest": true,
-                        "scheme_change": false
-                    }
-                }
+permissive =    {format_value(DEFAULTS['rules']['permissive'])}
 
 # Strict rule - very conservative
 # Only allows updates when explicitly configured
-strict =        {
-                    "minImageAge": "3h",
-                    "progressiveUpgrade": false,
-                    "allow": {
-                        "major": false,
-                        "minor": false,
-                        "patch": false,
-                        "build": false,
-                        "digest": false,
-                        "scheme_change": false
-                    }
-                }
+strict =        {format_value(DEFAULTS['rules']['strict'])}
 
 # Patch-only rule - only patch updates
 # Good for production environments
-patch_only =    {
-                    "minImageAge": "3h",
-                    "progressiveUpgrade": true,
-                    "allow": {
-                        "major": false,
-                        "minor": false,
-                        "patch": true,
-                        "build": false,
-                        "digest": false,
-                        "scheme_change": false
-                    }
-                }
+patch_only =    {format_value(DEFAULTS['rules']['patch_only'])}
 
 # Security-only rule - patch and digest updates
 # Focuses on security updates only
-security_only = {
-                    "minImageAge": "3h",
-                    "progressiveUpgrade": true,
-                    "allow": {
-                        "major": false,
-                        "minor": false,
-                        "patch": true,
-                        "build": false,
-                        "digest": true,
-                        "scheme_change": false
-                    }
-                }
+security_only = {format_value(DEFAULTS['rules']['security_only'])}
 
 # Digest-only rule - only digest updates
 # Focuses on updates that change the image digest only
-digest_only =  {
-                    "minImageAge": "24h",
-                    "progressiveUpgrade": true,
-                    "allow": {
-                        "major": false,
-                        "minor": false,
-                        "patch": false,
-                        "build": false,
-                        "digest": true,
-                        "scheme_change": false
-                    }
-                }
+digest_only =  {format_value(DEFAULTS['rules']['digest_only'])}
 
 # CI/CD rule - minor, patch, and build updates
 # Good for development and CI/CD environments
-ci_cd =         {
-                    "minImageAge": "3h",
-                    "progressiveUpgrade": true,
-                    "allow": {
-                        "major": false,
-                        "minor": true,
-                        "patch": true,
-                        "build": true,
-                        "digest": false,
-                        "scheme_change": false
-                    },
-                    "conditions": {
-                        "minor": {
-                            "require": ["patch"]
-                        }
-                    }
-                }
+ci_cd =         {format_value(DEFAULTS['rules']['ci_cd'])}
 
 # Conservative rule - patch and build updates with lag
 # Conservative approach with longer image age requirement
-conservative =  {
-                    "minImageAge": "24h",
-                    "progressiveUpgrade": true,
-                    "allow": {
-                        "major": false,
-                        "minor": false,
-                        "patch": true,
-                        "build": true,
-                        "digest": false,
-                        "scheme_change": false
-                    },
-                    "lagPolicy": {
-                        "major": 1
-                    }
-                }
+conservative =  {format_value(DEFAULTS['rules']['conservative'])}
 """
 
     try:

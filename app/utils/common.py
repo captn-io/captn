@@ -108,7 +108,7 @@ def detect_version_scheme(version: str) -> str:
     Detects the versioning scheme used by a version string.
 
     This function analyzes version strings to determine their format:
-    - 'date': Date-based versioning (e.g., "2021.10.08", "2023.12.25")
+    - 'date': Date-based versioning (e.g., "2021.10.08", "2023.12.25", "2023.1.2", "2023.10.0", "2023.0.0", "2025.8.126")
     - 'semantic': Standard semantic versioning (e.g., "1.2.3", "2.15.3")
     - 'numeric': Simple numeric versioning (e.g., "1", "2", "10")
     - 'unknown': Unable to determine scheme
@@ -130,17 +130,21 @@ def detect_version_scheme(version: str) -> str:
     # - YYYY.MM.D.X
     # - YYYY.M.D.X
     # - YYYY.MM.DD.X
+    # - YYYY.MM.X.X
+    # - YYYY.M.X.X
     #
     # Where:
     # - YYYY: 4-digit year starting with "20" (2000-2099)
     # - MM: Month (01-12)
     # - DD: Day (01-31)
-    # - M: Month (1-9)
-    # - D: Day (1-9)
-    # - X: Patch/build numbers (any number of digits, can be empty)
+    # - M:  Month without leading zero (1-9)
+    # - D:  Day without leading zero or Patch (0-9)
+    # - X:  Patch/build numbers (any number of digits, can be empty)
     #
     # The X placeholder represents patch and build numbers that are always appended by normalize_version
-    date_pattern = r'^(20)\d{2}\.([1-9]|0[1-9]|1[0-2])\.([1-9]|0[1-9]|[12]\d|3[01])\.([0-9]*)$'
+    #
+    # TL;DR: A valid year schema requires the major version to be between 2000 and 2099, and the minor version to be between 1 and 12.
+    date_pattern = r'^(20)\d{2}\.([1-9]|0[1-9]|1[0-2])\.([0-9]*|0[1-9]|[12]\d|3[01])\.([0-9]*)$'
     if re.match(date_pattern, version):
         return 'date'
 
@@ -642,7 +646,7 @@ def get_update_permit( container_name=None, image_reference=None, update_type=No
         return {}
 
     assignments = {
-        "by_name": get_assignment_section("assignmentsByName"),
+        "by_name": get_assignment_section("assignments") or get_assignment_section("assignmentsByName"),
         "by_image": get_assignment_section("assignmentsByImage"),
         "by_id": get_assignment_section("assignmentsById"),
     }
@@ -849,7 +853,7 @@ def get_container_allowed_update_types( container_name, image_reference=None ) -
         return {}
 
     assignments = {
-        "by_name": get_assignment_section("assignmentsByName"),
+        "by_name": get_assignment_section("assignments") or get_assignment_section("assignmentsByName"),
         "by_image": get_assignment_section("assignmentsByImage"),
         "by_id": get_assignment_section("assignmentsById"),
     }

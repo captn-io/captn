@@ -99,7 +99,7 @@ For installation instructions, see the [Quick Start section in the README](https
 After installation, configure update rules in `~/captn/conf/captn.cfg`:
 
 ```ini
-[assignmentsByName]
+[assignments]
 # Assign containers to update rules
 nginx = permissive
 postgres = conservative
@@ -116,14 +116,14 @@ docker exec captn captn --dry-run
 ### Development Environments
 Keep development containers automatically updated with the latest features:
 ```ini
-[assignmentsByName]
+[assignments]
 dev-* = permissive
 ```
 
 ### Production Environments
 Conservative updates with thorough verification:
 ```ini
-[assignmentsByName]
+[assignments]
 prod-web = patch_only
 prod-db = conservative
 prod-cache = security_only
@@ -132,7 +132,7 @@ prod-cache = security_only
 ### Mixed Environments
 Different rules for different services:
 ```ini
-[assignmentsByName]
+[assignments]
 # Web servers: minor and patch updates
 nginx = ci_cd
 apache = ci_cd
@@ -161,7 +161,7 @@ docker exec captn captn --dry-run
 ### 2. Use Conservative Rules Initially
 Start with conservative update rules and gradually make them more permissive as you gain confidence:
 ```ini
-[assignmentsByName]
+[assignments]
 # Start with patch_only or conservative
 myapp = patch_only
 ```

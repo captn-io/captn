@@ -22,7 +22,7 @@ This document provides a comprehensive reference for all captn configuration opt
   - [notifiers](#notifiers)
   - [notifiers.telegram](#notifierstelegram)
   - [notifiers.email](#notifiersemail)
-  - [assignmentsByName](#assignmentsbyname)
+  - [assignments](#assignments)
   - [rules](#rules)
 - [Built-in Rules](#built-in-rules)
 - [Custom Rules](#custom-rules)
@@ -1101,7 +1101,7 @@ To use Gmail as your SMTP server:
 
 ---
 
-### `[assignmentsByName]`
+### `[assignments]`
 
 Direct rule assignments by container name.
 
@@ -1109,13 +1109,13 @@ Assign specific update rules to containers by their name.
 
 **Format:**
 ```ini
-[assignmentsByName]
+[assignments]
 container_name = rule_name
 ```
 
 **Example:**
 ```ini
-[assignmentsByName]
+[assignments]
 # Databases: conservative updates
 MariaDB = conservative
 PostgreSQL = conservative
@@ -1136,11 +1136,11 @@ dev-* = permissive
 **Matching:**
 - Exact name match (case-sensitive)
 - If no match found, uses `default` rule
-- Wildcards not supported in assignmentsByName
+- Wildcards not supported in assignments
 
 **Priority:**
 1. Container label: `io.captn.rule=rule_name`
-2. assignmentsByName match
+2. assignments match
 3. Default rule
 
 ---
@@ -2057,7 +2057,7 @@ enabled = true
 #     }
 # }
 
-[assignmentsByName]
+[assignments]
 # Direct rule assignments by container name
 # This allows you to assign rules to containers
 # Format: container_name = rule_name

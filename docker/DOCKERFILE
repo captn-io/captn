@@ -17,9 +17,9 @@ LABEL org.opencontainers.image.title="captn" \
       org.opencontainers.image.revision=$REVISION \
       org.opencontainers.image.created=$CREATED \
       org.opencontainers.image.licenses="AGPL-3.0" \
-      org.opencontainers.image.authors="Jan Hansmeyer <jan@jk-net.com>" \
+      org.opencontainers.image.authors="captn.io <captn-io@jk-net.com>" \
       org.opencontainers.image.base.name="docker.io/library/alpine:3.21.3" \
-      maintainer="Jan Hansmeyer <jan@jk-net.com>"
+      maintainer="captn.io <captn-io@jk-net.com>"
 
 # Set working directory
 WORKDIR /app

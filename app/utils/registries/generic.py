@@ -7,7 +7,7 @@ import re
 from packaging.version import Version
 from ..common import normalize_version
 
-logging = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def extract_tag_name(tag):
@@ -45,7 +45,7 @@ def generate_tag_regex(template):
     regex = ""
     last_char_type = None
 
-    logging.debug(f"Generating tag regex for {template}", extra={"indent": 2})
+    logger.debug(f"Generating tag regex for {template}", extra={"indent": 2})
 
     for i, char in enumerate(template):
         if char.isdigit():
@@ -56,7 +56,7 @@ def generate_tag_regex(template):
             regex += re.escape(char)
             last_char_type = "alpha"
 
-    logging.debug(f"-> tag_regex: ^{regex}$", extra={"indent": 2})
+    logger.debug(f"-> tag_regex: ^{regex}$", extra={"indent": 2})
 
     return re.compile(f"^{regex}$")
 
@@ -76,7 +76,7 @@ def filter_image_tags(tags, imageTag):
         list: Filtered list of tags matching the template pattern
     """
     pattern = generate_tag_regex(imageTag)
-    logging.debug("Filtering retrieved tags", extra={"indent": 2})
+    logger.debug("Filtering retrieved tags", extra={"indent": 2})
     return [tag for tag in tags if pattern.match(extract_tag_name(tag))]
 
 

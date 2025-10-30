@@ -13,7 +13,7 @@ from ..config import config
 from . import generic
 from .auth import get_auth_headers, is_authenticated
 
-logging = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def update_url_with_page_size(url: str, page_size: int = config.ghcr.pageSize) -> str:
@@ -79,7 +79,7 @@ def fetch_ghcr_tag_details(imageUrl: str, tags: List[str], token: str) -> List[D
             manifest = response.json()
             media_type = manifest.get("mediaType")
 
-            logging.debug( f"Raw manifest data for tag {tag}: {json.dumps(manifest, indent=4)}", extra={"indent": 4}, )
+            logger.debug( f"Raw manifest data for tag {tag}: {json.dumps(manifest, indent=4)}", extra={"indent": 4}, )
             header_digest = response.headers.get("Docker-Content-Digest")
 
             # Fallbacks for created
@@ -170,7 +170,7 @@ def fetch_ghcr_tag_details(imageUrl: str, tags: List[str], token: str) -> List[D
                 )
 
         except requests.RequestException as e:
-            logging.warning( f"Failed to fetch manifest for tag {tag}: {e}", extra={"indent": 4} )
+            logger.warning( f"Failed to fetch manifest for tag {tag}: {e}", extra={"indent": 4} )
             tag_info = {
                 "creator": None,
                 "id": None,
@@ -226,10 +226,10 @@ def get_image_tags(imageName: str, imageUrl: str, imageTagsUrl: str, imageTag: s
 
     # Auth - use configured token if available, otherwise fall back to anonymous
     if auth_headers:
-        logging.debug(f"Using configured authentication for GHCR")
+        logger.debug(f"Using configured authentication for GHCR")
         headers = auth_headers
     else:
-        logging.debug(f"No authentication configured for GHCR, using anonymous access")
+        logger.debug(f"No authentication configured for GHCR, using anonymous access")
         try:
             token_response = requests.get("https://ghcr.io/token", params={"scope": f"repository:{imageName}:pull"}, timeout=10)
             token_response.raise_for_status()
@@ -238,7 +238,7 @@ def get_image_tags(imageName: str, imageUrl: str, imageTagsUrl: str, imageTag: s
                 raise ValueError("No token received")
             headers = {"Authorization": f"Bearer {token}"}
         except (requests.RequestException, ValueError) as e:
-            logging.error(f"Failed to retrieve auth token: {e}", extra={"indent": 4})
+            logger.error(f"Failed to retrieve auth token: {e}", extra={"indent": 4})
             return tags
 
     for _ in range(max_pages):
@@ -259,16 +259,16 @@ def get_image_tags(imageName: str, imageUrl: str, imageTagsUrl: str, imageTag: s
             else:
                 next_url = None
         except requests.RequestException as e:
-            logging.error(f"Error fetching tags from {next_url}: {e}", extra={"indent": 4})
+            logger.error(f"Error fetching tags from {next_url}: {e}", extra={"indent": 4})
             break
 
-    logging.debug(f"tags:\n{json.dumps(tags, indent=4)}", extra={"indent": 4})
+    logger.debug(f"tags:\n{json.dumps(tags, indent=4)}", extra={"indent": 4})
     filtered_tags = generic.filter_image_tags(tags, imageTag)
-    logging.debug(f"filtered_tags:\n{json.dumps(filtered_tags, indent=4)}", extra={"indent": 4})
+    logger.debug(f"filtered_tags:\n{json.dumps(filtered_tags, indent=4)}", extra={"indent": 4})
     sorted_tags = generic.sort_tags(filtered_tags)
-    logging.debug(f"sorted_filtered_tags:\n{json.dumps(sorted_tags, indent=4)}", extra={"indent": 4})
+    logger.debug(f"sorted_filtered_tags:\n{json.dumps(sorted_tags, indent=4)}", extra={"indent": 4})
     truncated_tags = generic.truncate_tags(sorted_tags, imageTag)
-    logging.debug(f"truncated_tags:\n{json.dumps(truncated_tags, indent=4)}", extra={"indent": 4})
+    logger.debug(f"truncated_tags:\n{json.dumps(truncated_tags, indent=4)}", extra={"indent": 4})
     detailed_tags = fetch_ghcr_tag_details(imageUrl, truncated_tags, token)
-    logging.debug(f"detailed_tags:\n{json.dumps(detailed_tags, indent=4)}", extra={"indent": 4})
+    logger.debug(f"detailed_tags:\n{json.dumps(detailed_tags, indent=4)}", extra={"indent": 4})
     return detailed_tags

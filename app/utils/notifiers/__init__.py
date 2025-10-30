@@ -1,5 +1,4 @@
 import logging
-import socket
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from .base import NotificationCollector
@@ -103,12 +102,10 @@ class NotificationManager:
 
     def set_start_time(self):
         """Set the start time of the update process."""
-        from datetime import datetime
         self.update_stats["start_time"] = datetime.now()
 
     def set_end_time(self):
         """Set the end time of the update process."""
-        from datetime import datetime
         self.update_stats["end_time"] = datetime.now()
 
     def send_update_report(self, dry_run: bool = False):

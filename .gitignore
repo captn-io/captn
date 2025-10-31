@@ -56,7 +56,7 @@ docker-compose.override.yml
 Thumbs.db
 ehthumbs.db
 
-# Other
+# captn config and logs
 /app/logs/*
 /app/venv/*
 /app/conf/*

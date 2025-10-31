@@ -6,10 +6,9 @@ import logging
 import os
 from typing import Dict, Optional
 from urllib.parse import urlparse
-
 from ..config import config
 
-logging = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class RegistryAuthManager:
@@ -60,12 +59,12 @@ class RegistryAuthManager:
         self._registry_credentials = {}
         self._repository_credentials = {}
         if not config.registryAuth.enabled:
-            logging.debug("Registry authentication is disabled", extra={"indent": 2})
+            logger.debug("Registry authentication is disabled", extra={"indent": 2})
             return
 
         credentials_file = config.registryAuth.credentialsFile
         if not os.path.exists(credentials_file):
-            logging.warning(f"Credentials file not found: {credentials_file}", extra={"indent": 2})
+            logger.warning(f"Credentials file not found: {credentials_file}", extra={"indent": 2})
             return
 
         try:
@@ -73,15 +72,15 @@ class RegistryAuthManager:
                 data = json.load(f)
 
             if not isinstance(data, dict):
-                logging.error(f"Invalid credentials file format: expected dict, got {type(data)}", extra={"indent": 2})
+                logger.error(f"Invalid credentials file format: expected dict, got {type(data)}", extra={"indent": 2})
                 return
 
             self._registry_credentials = data.get("registries", {}) or {}
             self._repository_credentials = data.get("repositories", {}) or {}
-            logging.debug(f"Loaded {len(self._registry_credentials)} registry and {len(self._repository_credentials)} repository credentials", extra={"indent": 2})
+            logger.debug(f"Loaded {len(self._registry_credentials)} registry and {len(self._repository_credentials)} repository credentials", extra={"indent": 2})
 
         except (json.JSONDecodeError, IOError) as e:
-            logging.error(f"Failed to load credentials from {credentials_file}: {e}", extra={"indent": 2})
+            logger.error(f"Failed to load credentials from {credentials_file}: {e}", extra={"indent": 2})
             self._registry_credentials = {}
             self._repository_credentials = {}
 
@@ -105,14 +104,14 @@ class RegistryAuthManager:
         Returns:
             Dictionary containing credentials or None if not found
         """
-        # logging.debug(f"func_params:\n{json.dumps({k: v for k, v in locals().items()}, indent=4)}", extra={"indent": 2})
+        # logger.debug(f"func_params:\n{json.dumps({k: v for k, v in locals().items()}, indent=4)}", extra={"indent": 2})
 
         if not config.registryAuth.enabled:
             return None
 
         # First, try repository-specific credentials
         if repository_name and repository_name in self._repository_credentials:
-            logging.debug(f"Found repository-specific credentials for: {repository_name}", extra={"indent": 2})
+            logger.debug(f"Found repository-specific credentials for: {repository_name}", extra={"indent": 2})
             return self._repository_credentials[repository_name]
 
         # Fall back to registry-level credentials
@@ -126,10 +125,10 @@ class RegistryAuthManager:
         # Try partial matches for subdomains
         for url, creds in self._registry_credentials.items():
             if self.urls_match(normalized_url, url):
-                logging.debug(f"Using registry-level credentials (partial match) for: {registry_url}", extra={"indent": 2})
+                logger.debug(f"Using registry-level credentials (partial match) for: {registry_url}", extra={"indent": 2})
                 return creds
 
-        logging.debug(f"No credentials found for registry: {registry_url}, repository: {repository_name}", extra={"indent": 2})
+        logger.debug(f"No credentials found for registry: {registry_url}, repository: {repository_name}", extra={"indent": 2})
         return None
 
     def normalize_registry_url(self, url: str) -> str:

@@ -12,7 +12,7 @@ from ..config import config
 from . import generic
 from .auth import get_credentials
 
-logging = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def update_url_with_page_size(url: str, page_size: int = config.docker.pageSize):
@@ -49,16 +49,16 @@ def get_dockerhub_jwt(repository_name: Optional[str] = None):
     Returns:
         Optional[str]: JWT token if authentication successful, None otherwise
     """
-    logging.debug(f"func_params:\n{json.dumps({k: v for k, v in locals().items()}, indent=4)}", extra={"indent": 2})
+    logger.debug(f"func_params:\n{json.dumps({k: v for k, v in locals().items()}, indent=4)}", extra={"indent": 2})
     creds = get_credentials(config.docker.apiUrl, repository_name)
     if not creds:
-        logging.debug(f"No credentials found for repository: {repository_name}", extra={"indent": 2})
+        logger.debug(f"No credentials found for repository: {repository_name}", extra={"indent": 2})
         return None
 
     username = creds.get("username")
     password = creds.get("password") or creds.get("token")
     if not username or not password:
-        logging.error(f"Incomplete credentials for repository: {repository_name} - username: {bool(username)}, password: {bool(password)}", extra={"indent": 2})
+        logger.error(f"Incomplete credentials for repository: {repository_name} - username: {bool(username)}, password: {bool(password)}", extra={"indent": 2})
         return None
 
     # Log which credentials are being used (without exposing the actual values)
@@ -76,12 +76,12 @@ def get_dockerhub_jwt(repository_name: Optional[str] = None):
         resp.raise_for_status()
         token = resp.json().get("token")
         if token:
-            logging.debug("Successfully obtained Docker Hub JWT token", extra={"indent": 4})
+            logger.debug("Successfully obtained Docker Hub JWT token", extra={"indent": 4})
             return token
         else:
-            logging.error("No token received from Docker Hub login", extra={"indent": 4})
+            logger.error("No token received from Docker Hub login", extra={"indent": 4})
     except Exception as e:
-        logging.error(f"Docker Hub login failed: {e}", extra={"indent": 4})
+        logger.error(f"Docker Hub login failed: {e}", extra={"indent": 4})
     return None
 
 
@@ -105,26 +105,26 @@ def get_image_tags(imageTagsUrl, imageTag, max_pages=config.docker.pageCrawlLimi
     tags = []
     page_count = 0
 
-    logging.debug(f"func_params:\n{json.dumps({k: v for k, v in locals().items()}, indent=4)}", extra={"indent": 4})
+    logger.debug(f"func_params:\n{json.dumps({k: v for k, v in locals().items()}, indent=4)}", extra={"indent": 4})
 
     # Extract repository name from the URL for auth
     # URL format: https://registry.hub.docker.com/v2/repositories/captnio/captn/tags
     try:
         repository_name = imageTagsUrl.split("/repositories/")[1].split("/tags")[0]
-        logging.debug(f"Extracted repository name from URL: {repository_name}", extra={"indent": 2})
+        logger.debug(f"Extracted repository name from URL: {repository_name}", extra={"indent": 2})
     except (IndexError, AttributeError):
         # Fallback: try to extract from imageTag if it contains the full repository name
         repository_name = imageTag.split(':')[0] if ':' in imageTag else imageTag
-        logging.debug(f"Using fallback repository name from imageTag: {repository_name}", extra={"indent": 2})
+        logger.debug(f"Using fallback repository name from imageTag: {repository_name}", extra={"indent": 2})
 
     # Auth: Try JWT if credentials exist, else anonymous
     jwt_token = get_dockerhub_jwt(repository_name)
     if jwt_token:
         headers = {"Authorization": f"JWT {jwt_token}"}
-        logging.debug(f"Using Docker Hub JWT authentication", extra={"indent": 2})
+        logger.debug(f"Using Docker Hub JWT authentication", extra={"indent": 2})
     else:
         headers = {}
-        logging.debug(f"No authentication configured for Docker Hub (anonymous)", extra={"indent": 2})
+        logger.debug(f"No authentication configured for Docker Hub (anonymous)", extra={"indent": 2})
 
     while imageTagsUrl:
         if max_pages is not None and page_count >= max_pages:
@@ -133,8 +133,8 @@ def get_image_tags(imageTagsUrl, imageTag, max_pages=config.docker.pageCrawlLimi
         imageTagsUrl = update_url_with_page_size(imageTagsUrl, page_size=page_size)
 
         try:
-            logging.debug(f"Making request to: {imageTagsUrl}", extra={"indent": 2})
-            logging.debug(f"Headers: {headers}", extra={"indent": 2})
+            logger.debug(f"Making request to: {imageTagsUrl}", extra={"indent": 2})
+            logger.debug(f"Headers: {headers}", extra={"indent": 2})
             response = requests.get(imageTagsUrl, headers=headers, timeout=30)
             response.raise_for_status()
             data = response.json()
@@ -145,14 +145,14 @@ def get_image_tags(imageTagsUrl, imageTag, max_pages=config.docker.pageCrawlLimi
             imageTagsUrl = data.get("next")
             page_count += 1
         except requests.exceptions.RequestException as e:
-            logging.error(f"Error fetching image tags from {imageTagsUrl}: {e}", extra={"indent": 2})
+            logger.error(f"Error fetching image tags from {imageTagsUrl}: {e}", extra={"indent": 2})
             break
 
-    logging.debug(f"-> tags:\n{json.dumps(tags, indent=4)}", extra={"indent": 2})
+    logger.debug(f"-> tags:\n{json.dumps(tags, indent=4)}", extra={"indent": 2})
     tags = generic.filter_image_tags(tags, imageTag)
-    logging.debug(f"-> filtered_tags:\n{json.dumps(tags, indent=4)}", extra={"indent": 2})
+    logger.debug(f"-> filtered_tags:\n{json.dumps(tags, indent=4)}", extra={"indent": 2})
     tags = generic.sort_tags(tags)
-    logging.debug(f"-> sorted_filtered_tags:\n{json.dumps(tags, indent=4)}", extra={"indent": 2})
+    logger.debug(f"-> sorted_filtered_tags:\n{json.dumps(tags, indent=4)}", extra={"indent": 2})
     tags = generic.truncate_tags(tags, imageTag)
-    logging.debug(f"-> truncated_tags:\n{json.dumps(tags, indent=4)}", extra={"indent": 2})
+    logger.debug(f"-> truncated_tags:\n{json.dumps(tags, indent=4)}", extra={"indent": 2})
     return tags

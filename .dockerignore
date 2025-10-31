@@ -29,5 +29,6 @@ docker/build/*
 *.bak
 *.tmp
 
-# Captn config
-/app/conf/captn.cfg
+# captn config and logs
+/app/conf/*
+/app/logs/*

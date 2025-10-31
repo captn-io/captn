@@ -8,14 +8,18 @@ ENV VERSION=${VERSION}
 
 # Common labels
 LABEL org.opencontainers.image.title="captn" \
-      org.opencontainers.image.description="A rule-driven container updater that automates Docker container upgrades based on semantic versioning and registry metadata." \
+      org.opencontainers.image.description="Intelligent, rule-based container updater that automatically manages container updates using semantic versioning and registry metadata" \
+      org.opencontainers.image.vendor="captn.io" \
       org.opencontainers.image.version=$VERSION \
       org.opencontainers.image.url="https://github.com/captn-io/captn" \
-      org.opencontainers.image.source="https://github.com/captm-io/captn" \
+      org.opencontainers.image.source="https://github.com/captn-io/captn" \
+      org.opencontainers.image.documentation="https://github.com/captn-io/captn/blob/main/README.md" \
       org.opencontainers.image.revision=$REVISION \
       org.opencontainers.image.created=$CREATED \
       org.opencontainers.image.licenses="AGPL-3.0" \
-      org.opencontainers.image.authors="captn.io <captn-io@jk-net.com>"
+      org.opencontainers.image.authors="captn.io <captn-io@jk-net.com>" \
+      org.opencontainers.image.base.name="docker.io/library/alpine:3.21.3" \
+      maintainer="captn.io <captn-io@jk-net.com>"
 
 # Set working directory
 WORKDIR /app

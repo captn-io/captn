@@ -32,7 +32,9 @@ captn understands semantic versioning and can differentiate between:
 - **Digest updates**: Same tag, different image digest
 
 #### 3. Progressive Upgrades
-When multiple versions are available, captn can apply them progressively (one at a time) to ensure stability at each step, or jump directly to the latest version depending on your rule configuration.
+When multiple versions are available, captn can apply them in different ways based on the `progressiveUpgrade` setting in your rule configuration:
+- **Progressive mode (`progressiveUpgrade: true`)**: All available updates are applied sequentially in a single captn run (e.g., 1.0 → 1.1 → 1.2 → 2.0), with verification after each step
+- **Single-step mode (`progressiveUpgrade: false`)**: Only the next available update is applied per captn run (e.g., 1.0 → 1.1), with remaining updates applied in subsequent runs
 
 #### 4. Verification & Rollback
 After each update, captn verifies that the container starts successfully and remains stable. If an update fails, it automatically rolls back to the previous version.
@@ -99,7 +101,7 @@ For installation instructions, see the [Quick Start section in the README](https
 After installation, configure update rules in `~/captn/conf/captn.cfg`:
 
 ```ini
-[assignmentsByName]
+[assignments]
 # Assign containers to update rules
 nginx = permissive
 postgres = conservative
@@ -116,14 +118,14 @@ docker exec captn captn --dry-run
 ### Development Environments
 Keep development containers automatically updated with the latest features:
 ```ini
-[assignmentsByName]
+[assignments]
 dev-* = permissive
 ```
 
 ### Production Environments
 Conservative updates with thorough verification:
 ```ini
-[assignmentsByName]
+[assignments]
 prod-web = patch_only
 prod-db = conservative
 prod-cache = security_only
@@ -132,7 +134,7 @@ prod-cache = security_only
 ### Mixed Environments
 Different rules for different services:
 ```ini
-[assignmentsByName]
+[assignments]
 # Web servers: minor and patch updates
 nginx = ci_cd
 apache = ci_cd
@@ -161,7 +163,7 @@ docker exec captn captn --dry-run
 ### 2. Use Conservative Rules Initially
 Start with conservative update rules and gradually make them more permissive as you gain confidence:
 ```ini
-[assignmentsByName]
+[assignments]
 # Start with patch_only or conservative
 myapp = patch_only
 ```

@@ -4,22 +4,40 @@ This document provides a complete reference for the captn command-line interface
 
 ## Table of Contents
 
-- [Basic Usage](#basic-usage)
-- [Command Syntax](#command-syntax)
-- [Options](#options)
-  - [--version](#--version---v)
-  - [--run](#--run---r)
-  - [--dry-run](#--dry-run---t)
-  - [--filter](#--filter)
-  - [--log-level](#--log-level---l)
-  - [--clear-logs](#--clear-logs---c)
-  - [--daemon](#--daemon---d)
-- [Filters](#filters)
-  - [Name Filters](#name-filters)
-  - [Multiple Name Filters](#multiple-name-filters)
-- [Examples](#examples)
-- [Exit Codes](#exit-codes)
-- [Environment Variables](#environment-variables)
+- [CLI Reference](#cli-reference)
+  - [Table of Contents](#table-of-contents)
+  - [Basic Usage](#basic-usage)
+  - [Command Syntax](#command-syntax)
+  - [Options](#options)
+    - [`--version`, `-v`](#--version--v)
+    - [`--run`, `-r`](#--run--r)
+    - [`--dry-run`, `-t`](#--dry-run--t)
+    - [`--filter`](#--filter)
+    - [`--log-level`, `-l`](#--log-level--l)
+    - [`--clear-logs`, `-c`](#--clear-logs--c)
+    - [`--daemon`, `-d`](#--daemon--d)
+  - [Filters](#filters)
+    - [Name Filters](#name-filters)
+    - [Multiple Name Filters](#multiple-name-filters)
+  - [Examples](#examples)
+    - [Basic Operations](#basic-operations)
+    - [Filtering Examples](#filtering-examples)
+    - [Logging Examples](#logging-examples)
+    - [Combined Examples](#combined-examples)
+    - [Testing and Troubleshooting](#testing-and-troubleshooting)
+  - [Exit Codes](#exit-codes)
+  - [Environment Variables](#environment-variables)
+    - [`TZ`](#tz)
+    - [Docker Socket](#docker-socket)
+  - [Best Practices](#best-practices)
+    - [1. Always Test with Dry-Run](#1-always-test-with-dry-run)
+    - [2. Use Filters Strategically](#2-use-filters-strategically)
+    - [3. Monitor with Debug Logging](#3-monitor-with-debug-logging)
+    - [4. Clear Logs for Debugging](#4-clear-logs-for-debugging)
+    - [5. Schedule Updates Appropriately](#5-schedule-updates-appropriately)
+  - [Troubleshooting](#troubleshooting)
+    - [Container Update Failed](#container-update-failed)
+  - [Quick Reference Card](#quick-reference-card)
 
 ## Basic Usage
 
@@ -303,7 +321,7 @@ docker run -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v ~/captn/conf:/app/conf \
   -v ~/captn/logs:/app/logs \
-  captnio/captn:0.8.1
+  captnio/captn:0.8.2
 ```
 
 **Note:** The captn Docker image runs in daemon mode by default. The `--daemon` flag is already configured internally and does not need to be specified.
@@ -498,30 +516,6 @@ captn --dry-run --filter name=prod-* --log-level info
 captn --run --filter name=nginx --clear-logs
 ```
 
-### Daemon Mode Examples
-
-**Run captn Container:**
-```bash
-# The container runs in daemon mode by default
-docker run -d \
-  --name captn \
-  --restart unless-stopped \
-  -e TZ=Europe/Berlin \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v ~/captn/conf:/app/conf \
-  -v ~/captn/logs:/app/logs \
-  captnio/captn:0.8.1
-```
-
-**Note:** The captn Docker image is pre-configured to run in daemon mode. No additional parameters are needed.
-
-**Stop captn:**
-```bash
-docker stop captn
-# or
-docker kill -s SIGTERM captn
-```
-
 ### Testing and Troubleshooting
 
 **Test Configuration:**
@@ -554,10 +548,10 @@ captn --run --log-level debug --clear-logs
 
 captn uses standard Unix exit codes:
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success - All operations completed successfully |
-| 1 | Error - General error occurred during execution |
+| Code | Meaning                                         |
+| ---- | ----------------------------------------------- |
+| 0    | Success - All operations completed successfully |
+| 1    | Error - General error occurred during execution |
 
 **Note:** Exit codes are only relevant for non-daemon mode. In daemon mode, captn runs continuously and doesn't exit unless stopped or an unrecoverable error occurs.
 
@@ -578,8 +572,7 @@ docker run -d \
   -e TZ=Europe/Berlin \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v ~/captn/conf:/app/conf \
-  captnio/captn:0.8.1 \
-  captn --daemon
+  captnio/captn:0.8.2
 ```
 
 ### Docker Socket
@@ -593,8 +586,7 @@ captn requires access to the Docker socket to manage containers.
 docker run -d \
   --name captn \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  captnio/captn:0.8.1 \
-  captn --daemon
+  captnio/captn:0.8.2
 ```
 
 ---
@@ -647,22 +639,7 @@ Start with fresh logs when troubleshooting:
 captn --clear-logs --log-level debug --dry-run
 ```
 
-### 5. Use Daemon Mode in Production
-
-Run captn as a daemon for automated updates:
-
-```bash
-docker run -d \
-  --name captn \
-  --restart unless-stopped \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v ~/captn/conf:/app/conf \
-  -v ~/captn/logs:/app/logs \
-  captnio/captn:0.8.1 \
-  captn --daemon
-```
-
-### 6. Schedule Updates Appropriately
+### 5. Schedule Updates Appropriately
 
 Set cron schedules during low-traffic periods:
 
@@ -679,20 +656,6 @@ cronSchedule = 0 2 * * 0
 
 ## Troubleshooting
 
-### No Containers Being Updated
-
-**Check filters:**
-```bash
-# Verify filter matches containers
-captn --dry-run --filter name=yourcontainer
-```
-
-**Check log level:**
-```bash
-# Use debug to see detailed information
-captn --dry-run --log-level debug
-```
-
 ### Container Update Failed
 
 **Check logs:**
@@ -701,30 +664,12 @@ captn --dry-run --log-level debug
 docker logs captn
 
 # Or check log files
-tail -f ~/captn/logs/captn.log
+tail ~/captn/logs/captn.log
 ```
 
-**Debug specific container:**
+**Debug specific container by trying it again with a cleared log file:**
 ```bash
-captn --log-level debug --filter name=failed-container
-```
-
-### Daemon Not Running
-
-**Check container status:**
-```bash
-docker ps | grep captn
-```
-
-**Check logs:**
-```bash
-docker logs captn
-```
-
-**Verify cron schedule:**
-```bash
-# Check if schedule is valid
-docker exec captn cat /app/conf/captn.cfg | grep cronSchedule
+captn --clear-logs --log-level debug --filter name=failed-container
 ```
 
 ---
@@ -759,8 +704,6 @@ captn --run --filter name=prod-* --log-level info
 captn --clear-logs --dry-run --log-level debug
 captn --filter name=web-* name=api-* --log-level debug
 ```
-
-**Note:** The captn Docker image runs in daemon mode by default - no `--daemon` flag needed.
 
 ---
 

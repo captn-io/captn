@@ -2,14 +2,14 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, 'dev-*' ]
+    branches: [ main, 'dev-*', 'feature-*', 'hotfix-*', 'release-*' ]
     tags: [ 'v*' ]
     paths-ignore:
       - '*.md'
       - '**/*.md'
       - 'docs/**'
   pull_request:
-    branches: [ main, 'dev-*' ]
+    branches: [ main, 'dev-*', 'feature-*', 'hotfix-*', 'release-*' ]
     paths-ignore:
       - '*.md'
       - '**/*.md'
@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should_build: ${{ steps.filter.outputs.should_build }}
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -43,13 +43,13 @@ jobs:
           # For push events, compare with previous commit
           CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
         fi
-        
+
         echo "Changed files:"
         echo "$CHANGED_FILES"
-        
+
         # Check if any non-documentation files were changed
         SHOULD_BUILD="false"
-        
+
         while IFS= read -r file; do
           # Skip if file is markdown or in docs/ directory
           if [[ "$file" != *.md ]] && [[ "$file" != docs/* ]]; then
@@ -61,7 +61,7 @@ jobs:
             fi
           fi
         done <<< "$CHANGED_FILES"
-        
+
         echo "should_build=$SHOULD_BUILD" >> $GITHUB_OUTPUT
         echo "Build required: $SHOULD_BUILD"
 
@@ -159,7 +159,7 @@ jobs:
     needs: [check-changes, license-check]
     if: |
       needs.check-changes.outputs.should_build == 'true' &&
-      github.ref == 'refs/heads/main' && 
+      github.ref == 'refs/heads/main' &&
       github.event_name != 'pull_request'
     permissions:
       contents: write
@@ -227,7 +227,7 @@ jobs:
         echo "✅ Release v${{ steps.version.outputs.version }} created successfully!"
         echo "📦 Archive: captn-${{ steps.version.outputs.version }}.tar.gz"
 
-  # Stage 3: Build and Push Docker Image (main and dev-* branches)
+  # Stage 3: Build and Push Docker Image (main, dev-* and release-* branches)
   build:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
@@ -235,7 +235,7 @@ jobs:
     if: |
       needs.check-changes.outputs.should_build == 'true' &&
       github.event_name != 'pull_request' &&
-      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/dev-'))
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/dev-') || startsWith(github.ref, 'refs/heads/release-'))
     permissions:
       contents: read
       packages: write
@@ -273,7 +273,10 @@ jobs:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
           type=ref,event=pr
-          type=ref,event=branch,prefix=dev-,enable=${{ startsWith(github.ref, 'refs/heads/dev-') }}
+          type=ref,event=branch,enable=${{ startsWith(github.ref, 'refs/heads/dev-') }}
+          type=ref,event=branch,enable=${{ startsWith(github.ref, 'refs/heads/feature-') }}
+          type=ref,event=branch,enable=${{ startsWith(github.ref, 'refs/heads/hotfix-') }}
+          type=ref,event=branch,enable=${{ startsWith(github.ref, 'refs/heads/release-') }}
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
@@ -281,11 +284,16 @@ jobs:
           type=raw,value=${{ steps.version.outputs.version }},enable={{is_default_branch}}
         labels: |
           org.opencontainers.image.title=captn
-          org.opencontainers.image.description=Automated container updates
-          org.opencontainers.image.licenses=MIT
+          org.opencontainers.image.description=Intelligent, rule-based container updater that automatically manages container updates using semantic versioning and registry metadata
+          org.opencontainers.image.vendor=captn.io
+          org.opencontainers.image.licenses=AGPL-3.0
+          org.opencontainers.image.version=${{ steps.version.outputs.version }}
           org.opencontainers.image.authors=captn.io <captn-io@jk-net.com>
           org.opencontainers.image.url=https://github.com/captn-io/captn
           org.opencontainers.image.source=https://github.com/captn-io/captn
+          org.opencontainers.image.documentation=https://github.com/captn-io/captn/blob/main/README.md
+          org.opencontainers.image.base.name=docker.io/library/alpine:3.21.3
+          maintainer=captn.io <captn-io@jk-net.com>
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
@@ -373,12 +381,15 @@ jobs:
         image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         args: --severity-threshold=high
 
-  # Stage 5: Update version numbers in Markdown files (only on main branch)
+  # Stage 5: Update version numbers in Markdown files (all branches EXCEPT main)
   update-version-docs:
     name: Update Version in Documentation
     runs-on: ubuntu-latest
-    needs: [release, build]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [build]
+    if: |
+      github.event_name != 'pull_request' &&
+      github.ref != 'refs/heads/main' &&
+      (startsWith(github.ref, 'refs/heads/dev-') || startsWith(github.ref, 'refs/heads/feature-') || startsWith(github.ref, 'refs/heads/hotfix-') || startsWith(github.ref, 'refs/heads/release-'))
     permissions:
       contents: write
 
@@ -387,6 +398,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
+        ref: ${{ github.ref_name }}
 
     - name: Get version from app
       id: version
@@ -438,6 +450,23 @@ jobs:
               echo "  ✓ Updated download links"
               CHANGES_MADE=true
             fi
+
+            # Update standalone version numbers in code blocks (e.g., CLI output examples)
+            # This specifically targets the pattern in CLI reference documentation
+            if grep -E "^\`\`\`$" "$file" > /dev/null 2>&1; then
+              # Use perl for multiline matching: ```\n<version>\n```
+              if perl -0777 -pe "s/(\`\`\`\n)[0-9]+\.[0-9]+\.[0-9]+(\n\`\`\`)/\${1}$VERSION\${2}/g" "$file" > "$file.tmp"; then
+                if ! cmp -s "$file" "$file.tmp"; then
+                  mv "$file.tmp" "$file"
+                  echo "  ✓ Updated standalone version in code blocks"
+                  CHANGES_MADE=true
+                else
+                  rm "$file.tmp"
+                fi
+              else
+                rm -f "$file.tmp"
+              fi
+            fi
           fi
         done
 
@@ -468,7 +497,7 @@ jobs:
         git config --local user.name "github-actions[bot]"
         git add *.md docs/*.md
         git commit -m "chore: update version to ${{ steps.version.outputs.version }} in documentation [skip ci]"
-        git push
+        git push origin HEAD:${{ github.ref_name }}
 
     - name: Summary
       run: |
@@ -482,12 +511,15 @@ jobs:
           echo "ℹ️  No documentation updates needed" >> $GITHUB_STEP_SUMMARY
         fi
 
-  # Stage 6: Update configuration example in documentation (only on main branch)
+  # Stage 6: Update configuration example in documentation (all branches EXCEPT main)
   update-config-docs:
     name: Update Configuration Example
     runs-on: ubuntu-latest
     needs: [update-version-docs]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: |
+      github.event_name != 'pull_request' &&
+      github.ref != 'refs/heads/main' &&
+      (startsWith(github.ref, 'refs/heads/dev-') || startsWith(github.ref, 'refs/heads/feature-') || startsWith(github.ref, 'refs/heads/hotfix-') || startsWith(github.ref, 'refs/heads/release-'))
     permissions:
       contents: write
 
@@ -496,7 +528,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        ref: main
+        ref: ${{ github.ref_name }}
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -509,13 +541,13 @@ jobs:
         import sys
         import re
 
-        # Read the config.py file to extract example_content
+        # Read the config.py file to extract example_content from create_example_config function
         with open('app/utils/config.py', 'r', encoding='utf-8') as f:
             config_content = f.read()
 
-        # Extract the example_content string
-        # Find the start: example_content = """
-        start_marker = 'example_content = """'
+        # Find the create_example_config function and extract example_content
+        # Look for: example_content = f"""
+        start_marker = 'example_content = f"""'
         start_idx = config_content.find(start_marker)
         if start_idx == -1:
             print("ERROR: Could not find example_content in config.py")
@@ -601,7 +633,7 @@ jobs:
         git config --local user.name "github-actions[bot]"
         git add docs/03-Configuration.md
         git commit -m "chore: update configuration example in documentation [skip ci]"
-        git push
+        git push origin HEAD:${{ github.ref_name }}
 
     - name: Summary
       run: |
@@ -613,14 +645,13 @@ jobs:
           echo "ℹ️  No configuration example updates needed" >> $GITHUB_STEP_SUMMARY
         fi
 
-  # Stage 7: Update Docker Hub README - ALWAYS runs last (only on main branch)
+  # Stage 7: Update Docker Hub README - runs on main branch after build
   update-dockerhub-readme:
     name: Update Docker Hub README
     runs-on: ubuntu-latest
-    needs: [update-config-docs]
+    needs: [build]
     if: |
-      always() &&
-      github.ref == 'refs/heads/main' && 
+      github.ref == 'refs/heads/main' &&
       github.event_name != 'pull_request'
     permissions:
       contents: read
@@ -628,6 +659,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        ref: main
 
     - name: Update Docker Hub Description
       uses: peter-evans/dockerhub-description@v4
@@ -644,3 +677,141 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "✅ Docker Hub README updated successfully" >> $GITHUB_STEP_SUMMARY
         echo "🔗 [View on Docker Hub](https://hub.docker.com/r/${{ env.IMAGE_NAME }})" >> $GITHUB_STEP_SUMMARY
+
+  # Stage 8: Cleanup branch images after merge to main
+  cleanup-branch-images:
+    name: Cleanup Branch Docker Images
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      !contains(github.event.head_commit.message, '[skip ci]')
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: main
+        fetch-depth: 2
+
+    - name: Detect merged branch
+      id: detect_branch
+      run: |
+        # Try to detect the source branch from the merge commit
+        # Method 1: Check if this is a merge commit
+        PARENT_COUNT=$(git rev-list --parents -n 1 HEAD | wc -w)
+        
+        if [ $PARENT_COUNT -gt 2 ]; then
+          # This is a merge commit, get the branch name from commit message
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          echo "Commit message: $COMMIT_MSG"
+          
+          # Extract branch name from merge commit message (format: "Merge branch 'branch-name' into main")
+          if [[ "$COMMIT_MSG" =~ Merge[[:space:]]+(remote-tracking[[:space:]]+)?branch[[:space:]]+'([^']+)' ]]; then
+            BRANCH_NAME="${BASH_REMATCH[2]}"
+            # Remove origin/ prefix if present
+            BRANCH_NAME="${BRANCH_NAME#origin/}"
+            echo "Detected merged branch: $BRANCH_NAME"
+            echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+            echo "is_merge=true" >> $GITHUB_OUTPUT
+          else
+            echo "Could not extract branch name from merge commit"
+            echo "is_merge=false" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "Not a merge commit, skipping cleanup"
+          echo "is_merge=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Get Docker Hub token
+      id: docker_token
+      if: steps.detect_branch.outputs.is_merge == 'true'
+      run: |
+        # Get Docker Hub authentication token
+        TOKEN=$(curl -s -X POST \
+          -H "Content-Type: application/json" \
+          -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' \
+          https://hub.docker.com/v2/users/login/ | jq -r .token)
+        
+        if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+          echo "Failed to get Docker Hub token"
+          exit 1
+        fi
+        
+        echo "token=$TOKEN" >> $GITHUB_OUTPUT
+        echo "✅ Successfully authenticated with Docker Hub"
+
+    - name: Check if image exists
+      id: check_image
+      if: steps.detect_branch.outputs.is_merge == 'true'
+      run: |
+        BRANCH_NAME="${{ steps.detect_branch.outputs.branch_name }}"
+        TOKEN="${{ steps.docker_token.outputs.token }}"
+        
+        # Extract repository name from IMAGE_NAME (format: namespace/repository)
+        NAMESPACE=$(echo "${{ env.IMAGE_NAME }}" | cut -d'/' -f1)
+        REPO=$(echo "${{ env.IMAGE_NAME }}" | cut -d'/' -f2)
+        
+        echo "Checking for image: ${{ env.IMAGE_NAME }}:$BRANCH_NAME"
+        
+        # Check if the tag exists
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+          -H "Authorization: Bearer $TOKEN" \
+          "https://hub.docker.com/v2/namespaces/$NAMESPACE/repositories/$REPO/tags/$BRANCH_NAME")
+        
+        if [ "$HTTP_CODE" = "200" ]; then
+          echo "image_exists=true" >> $GITHUB_OUTPUT
+          echo "✅ Image tag '$BRANCH_NAME' exists"
+        else
+          echo "image_exists=false" >> $GITHUB_OUTPUT
+          echo "ℹ️  Image tag '$BRANCH_NAME' does not exist (HTTP $HTTP_CODE)"
+        fi
+
+    - name: Delete branch image
+      if: |
+        steps.detect_branch.outputs.is_merge == 'true' &&
+        steps.check_image.outputs.image_exists == 'true'
+      run: |
+        BRANCH_NAME="${{ steps.detect_branch.outputs.branch_name }}"
+        TOKEN="${{ steps.docker_token.outputs.token }}"
+        
+        # Extract repository name from IMAGE_NAME
+        NAMESPACE=$(echo "${{ env.IMAGE_NAME }}" | cut -d'/' -f1)
+        REPO=$(echo "${{ env.IMAGE_NAME }}" | cut -d'/' -f2)
+        
+        echo "🗑️  Deleting image: ${{ env.IMAGE_NAME }}:$BRANCH_NAME"
+        
+        # Delete the tag
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+          -H "Authorization: Bearer $TOKEN" \
+          "https://hub.docker.com/v2/namespaces/$NAMESPACE/repositories/$REPO/tags/$BRANCH_NAME")
+        
+        if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
+          echo "✅ Successfully deleted image tag '$BRANCH_NAME'"
+        else
+          echo "⚠️  Failed to delete image tag '$BRANCH_NAME' (HTTP $HTTP_CODE)"
+          exit 1
+        fi
+
+    - name: Summary
+      if: always()
+      run: |
+        echo "## Branch Image Cleanup" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ steps.detect_branch.outputs.is_merge }}" = "true" ]; then
+          BRANCH_NAME="${{ steps.detect_branch.outputs.branch_name }}"
+          echo "🔍 Detected merged branch: \`$BRANCH_NAME\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.check_image.outputs.image_exists }}" = "true" ]; then
+            echo "✅ Deleted Docker image: \`${{ env.IMAGE_NAME }}:$BRANCH_NAME\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️  No Docker image found for branch \`$BRANCH_NAME\`" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "ℹ️  No merge detected, skipping cleanup" >> $GITHUB_STEP_SUMMARY
+        fi

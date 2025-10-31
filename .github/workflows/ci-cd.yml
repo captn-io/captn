@@ -677,3 +677,141 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "✅ Docker Hub README updated successfully" >> $GITHUB_STEP_SUMMARY
         echo "🔗 [View on Docker Hub](https://hub.docker.com/r/${{ env.IMAGE_NAME }})" >> $GITHUB_STEP_SUMMARY
+
+  # Stage 8: Cleanup branch images after merge to main
+  cleanup-branch-images:
+    name: Cleanup Branch Docker Images
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      !contains(github.event.head_commit.message, '[skip ci]')
+    permissions:
+      contents: read
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: main
+        fetch-depth: 2
+
+    - name: Detect merged branch
+      id: detect_branch
+      run: |
+        # Try to detect the source branch from the merge commit
+        # Method 1: Check if this is a merge commit
+        PARENT_COUNT=$(git rev-list --parents -n 1 HEAD | wc -w)
+        
+        if [ $PARENT_COUNT -gt 2 ]; then
+          # This is a merge commit, get the branch name from commit message
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          echo "Commit message: $COMMIT_MSG"
+          
+          # Extract branch name from merge commit message (format: "Merge branch 'branch-name' into main")
+          if [[ "$COMMIT_MSG" =~ Merge[[:space:]]+(remote-tracking[[:space:]]+)?branch[[:space:]]+'([^']+)' ]]; then
+            BRANCH_NAME="${BASH_REMATCH[2]}"
+            # Remove origin/ prefix if present
+            BRANCH_NAME="${BRANCH_NAME#origin/}"
+            echo "Detected merged branch: $BRANCH_NAME"
+            echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+            echo "is_merge=true" >> $GITHUB_OUTPUT
+          else
+            echo "Could not extract branch name from merge commit"
+            echo "is_merge=false" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "Not a merge commit, skipping cleanup"
+          echo "is_merge=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Get Docker Hub token
+      id: docker_token
+      if: steps.detect_branch.outputs.is_merge == 'true'
+      run: |
+        # Get Docker Hub authentication token
+        TOKEN=$(curl -s -X POST \
+          -H "Content-Type: application/json" \
+          -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' \
+          https://hub.docker.com/v2/users/login/ | jq -r .token)
+        
+        if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+          echo "Failed to get Docker Hub token"
+          exit 1
+        fi
+        
+        echo "token=$TOKEN" >> $GITHUB_OUTPUT
+        echo "✅ Successfully authenticated with Docker Hub"
+
+    - name: Check if image exists
+      id: check_image
+      if: steps.detect_branch.outputs.is_merge == 'true'
+      run: |
+        BRANCH_NAME="${{ steps.detect_branch.outputs.branch_name }}"
+        TOKEN="${{ steps.docker_token.outputs.token }}"
+        
+        # Extract repository name from IMAGE_NAME (format: namespace/repository)
+        NAMESPACE=$(echo "${{ env.IMAGE_NAME }}" | cut -d'/' -f1)
+        REPO=$(echo "${{ env.IMAGE_NAME }}" | cut -d'/' -f2)
+        
+        echo "Checking for image: ${{ env.IMAGE_NAME }}:$BRANCH_NAME"
+        
+        # Check if the tag exists
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+          -H "Authorization: Bearer $TOKEN" \
+          "https://hub.docker.com/v2/namespaces/$NAMESPACE/repositories/$REPO/tags/$BRANCH_NAME")
+        
+        if [ "$HTTP_CODE" = "200" ]; then
+          echo "image_exists=true" >> $GITHUB_OUTPUT
+          echo "✅ Image tag '$BRANCH_NAME' exists"
+        else
+          echo "image_exists=false" >> $GITHUB_OUTPUT
+          echo "ℹ️  Image tag '$BRANCH_NAME' does not exist (HTTP $HTTP_CODE)"
+        fi
+
+    - name: Delete branch image
+      if: |
+        steps.detect_branch.outputs.is_merge == 'true' &&
+        steps.check_image.outputs.image_exists == 'true'
+      run: |
+        BRANCH_NAME="${{ steps.detect_branch.outputs.branch_name }}"
+        TOKEN="${{ steps.docker_token.outputs.token }}"
+        
+        # Extract repository name from IMAGE_NAME
+        NAMESPACE=$(echo "${{ env.IMAGE_NAME }}" | cut -d'/' -f1)
+        REPO=$(echo "${{ env.IMAGE_NAME }}" | cut -d'/' -f2)
+        
+        echo "🗑️  Deleting image: ${{ env.IMAGE_NAME }}:$BRANCH_NAME"
+        
+        # Delete the tag
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+          -H "Authorization: Bearer $TOKEN" \
+          "https://hub.docker.com/v2/namespaces/$NAMESPACE/repositories/$REPO/tags/$BRANCH_NAME")
+        
+        if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
+          echo "✅ Successfully deleted image tag '$BRANCH_NAME'"
+        else
+          echo "⚠️  Failed to delete image tag '$BRANCH_NAME' (HTTP $HTTP_CODE)"
+          exit 1
+        fi
+
+    - name: Summary
+      if: always()
+      run: |
+        echo "## Branch Image Cleanup" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ steps.detect_branch.outputs.is_merge }}" = "true" ]; then
+          BRANCH_NAME="${{ steps.detect_branch.outputs.branch_name }}"
+          echo "🔍 Detected merged branch: \`$BRANCH_NAME\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.check_image.outputs.image_exists }}" = "true" ]; then
+            echo "✅ Deleted Docker image: \`${{ env.IMAGE_NAME }}:$BRANCH_NAME\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️  No Docker image found for branch \`$BRANCH_NAME\`" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "ℹ️  No merge detected, skipping cleanup" >> $GITHUB_STEP_SUMMARY
+        fi

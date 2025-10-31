@@ -1133,16 +1133,6 @@ memcached = permissive
 dev-* = permissive
 ```
 
-**Matching:**
-- Exact name match (case-sensitive)
-- If no match found, uses `default` rule
-- Wildcards not supported in assignments
-
-**Priority:**
-1. Container label: `io.captn.rule=rule_name`
-2. assignments match
-3. Default rule
-
 ---
 
 ### `[rules]`

@@ -75,7 +75,7 @@ captn -v
 
 **Example Output:**
 ```
-0.7.19
+0.8.2
 ```
 
 ---

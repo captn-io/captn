@@ -150,7 +150,7 @@ def parse_args():
     parser.add_argument(
         "--dry-run", "-t",
         action="store_true",
-        help="Run Container Updater in dry-run mode to review what it would do (default is set in config)"
+        help="Run captn in dry-run mode to review what it would do (default is set in config)"
     )
     filter_arg = parser.add_argument(
         "--filter", nargs="*", metavar="FILTER",

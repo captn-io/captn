@@ -10,9 +10,7 @@ import time
 import argcomplete
 from argparse import RawTextHelpFormatter
 from datetime import datetime, timezone
-
 from app import __version__
-
 from .utils import cleanup, common, engines, self_update
 from .utils.registries import get_image_tags
 from .utils.common import setup_logging

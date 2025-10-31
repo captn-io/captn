@@ -710,8 +710,8 @@ jobs:
           echo "Commit message: $COMMIT_MSG"
           
           # Extract branch name from merge commit message (format: "Merge branch 'branch-name' into main")
-          if [[ "$COMMIT_MSG" =~ Merge[[:space:]]+(remote-tracking[[:space:]]+)?branch[[:space:]]+'([^']+)' ]]; then
-            BRANCH_NAME="${BASH_REMATCH[2]}"
+          if [[ "$COMMIT_MSG" =~ Merge.*branch[[:space:]][\'\"]([^\'\"]+)[\'\"] ]]; then
+            BRANCH_NAME="${BASH_REMATCH[1]}"
             # Remove origin/ prefix if present
             BRANCH_NAME="${BRANCH_NAME#origin/}"
             echo "Detected merged branch: $BRANCH_NAME"

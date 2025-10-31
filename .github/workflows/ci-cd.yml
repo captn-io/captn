@@ -158,7 +158,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [check-changes, license-check]
     if: |
-      needs.check-changes.outputs.should_build == 'true' &&
+      (needs.check-changes.outputs.should_build == 'true' || github.ref == 'refs/heads/main') &&
       github.ref == 'refs/heads/main' &&
       github.event_name != 'pull_request'
     permissions:
@@ -233,7 +233,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [check-changes, license-check]
     if: |
-      needs.check-changes.outputs.should_build == 'true' &&
+      (needs.check-changes.outputs.should_build == 'true' || github.ref == 'refs/heads/main') &&
       github.event_name != 'pull_request' &&
       (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/dev-') || startsWith(github.ref, 'refs/heads/release-'))
     permissions:

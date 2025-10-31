@@ -450,6 +450,23 @@ jobs:
               echo "  ✓ Updated download links"
               CHANGES_MADE=true
             fi
+
+            # Update standalone version numbers in code blocks (e.g., CLI output examples)
+            # This specifically targets the pattern in CLI reference documentation
+            if grep -E "^\`\`\`$" "$file" > /dev/null 2>&1; then
+              # Use perl for multiline matching: ```\n<version>\n```
+              if perl -0777 -pe "s/(\`\`\`\n)[0-9]+\.[0-9]+\.[0-9]+(\n\`\`\`)/\${1}$VERSION\${2}/g" "$file" > "$file.tmp"; then
+                if ! cmp -s "$file" "$file.tmp"; then
+                  mv "$file.tmp" "$file"
+                  echo "  ✓ Updated standalone version in code blocks"
+                  CHANGES_MADE=true
+                else
+                  rm "$file.tmp"
+                fi
+              else
+                rm -f "$file.tmp"
+              fi
+            fi
           fi
         done
 

@@ -32,7 +32,9 @@ captn understands semantic versioning and can differentiate between:
 - **Digest updates**: Same tag, different image digest
 
 #### 3. Progressive Upgrades
-When multiple versions are available, captn can apply them progressively (one at a time) to ensure stability at each step, or jump directly to the latest version depending on your rule configuration.
+When multiple versions are available, captn can apply them in different ways based on the `progressiveUpgrade` setting in your rule configuration:
+- **Progressive mode (`progressiveUpgrade: true`)**: All available updates are applied sequentially in a single captn run (e.g., 1.0 → 1.1 → 1.2 → 2.0), with verification after each step
+- **Single-step mode (`progressiveUpgrade: false`)**: Only the next available update is applied per captn run (e.g., 1.0 → 1.1), with remaining updates applied in subsequent runs
 
 #### 4. Verification & Rollback
 After each update, captn verifies that the container starts successfully and remains stable. If an update fails, it automatically rolls back to the previous version.

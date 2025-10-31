@@ -35,6 +35,8 @@
 
 > **Note**: This project is currently in an **early and active development phase**. While captn is functional and ready for testing, we're continuously improving and adding new features.
 
+> **⚠️ Docker Compose**: captn has been developed and tested exclusively with containers created via `docker run` commands. **Docker Compose support is currently untested** and may not work as expected. If you're using Docker Compose and encounter issues, please report them so we may improve compatibility if possible.
+
 **We welcome testers and contributors!** If you'd like to help shape captn, we're especially looking for contributions in:
 
 - **📝 Documentation** - Help improve guides, examples, and explanations

@@ -339,29 +339,47 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+    - name: Determine image tag
+      id: image_tag
+      run: |
+        if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          echo "tag=latest" >> $GITHUB_OUTPUT
+          echo "Using tag: latest (main branch)"
+        else
+          # For branch builds, use the branch name as tag
+          BRANCH_NAME="${{ github.ref_name }}"
+          echo "tag=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "Using tag: $BRANCH_NAME (branch build)"
+        fi
+
     - name: Pull and test image
       run: |
-        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        IMAGE_TAG="${{ steps.image_tag.outputs.tag }}"
+        echo "Pulling image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG"
+        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+        
         # Test basic functionality
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest captn --help
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest captn --version
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG captn --help
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG captn --version
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG captn --filter name=nginx --dry-run
         echo "Image test completed successfully"
 
     - name: Extract example config from container
       run: |
+        IMAGE_TAG="${{ steps.image_tag.outputs.tag }}"
+        
         # Create temporary directory for config
         mkdir -p /tmp/captn-conf
         
-        # Run container briefly to generate example config
-        # The container will create captn.example.cfg when /app/conf exists
-        docker run --rm \
-          -v /tmp/captn-conf:/app/conf \
-          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
-          captn --help > /dev/null 2>&1 || true
+        # Run container and trigger example config creation
+        echo "Extracting config from image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG"
+        docker run --rm -v /tmp/captn-conf:/app/conf ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG captn --filter name=nginx --dry-run
         
         # Verify the example config was created
         if [ ! -f /tmp/captn-conf/captn.example.cfg ]; then
           echo "ERROR: captn.example.cfg was not created"
+          echo "Contents of /tmp/captn-conf:"
+          ls -la /tmp/captn-conf/ || echo "Directory not accessible"
           exit 1
         fi
         

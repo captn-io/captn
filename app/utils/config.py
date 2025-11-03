@@ -686,7 +686,7 @@ class Config:
                     elif not isinstance(allowed, bool):
                         errors.append(f"rules.{rule_name}.allow.{update_type} must be a boolean")
 
-        # Validate progressiveUpgrade (optional)
+        # Validate progressiveUpgrade
         if "progressiveUpgrade" in rule_data:
             if not isinstance(rule_data["progressiveUpgrade"], bool):
                 errors.append(f"rules.{rule_name}.progressiveUpgrade must be a boolean")

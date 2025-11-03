@@ -361,7 +361,6 @@ jobs:
         # Test basic functionality
         docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG captn --help
         docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG captn --version
-        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG captn --filter name=nginx --dry-run
         echo "Image test completed successfully"
 
     - name: Extract example config from container
@@ -371,9 +370,15 @@ jobs:
         # Create temporary directory for config
         mkdir -p /tmp/captn-conf
         
-        # Run container and trigger example config creation
+        # Run container
         echo "Extracting config from image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG"
-        docker run --rm -v /tmp/captn-conf:/app/conf ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG captn --filter name=nginx --dry-run
+        docker run -d --name captn -v /var/run/docker.sock:/var/run/docker.sock -v /tmp/captn-conf:/app/conf ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$IMAGE_TAG
+
+        # Trigger example config creation
+        docker exec captn captn --filter name=nginx --dry-run
+
+        # Remove container
+        docker rm -f captn
         
         # Verify the example config was created
         if [ ! -f /tmp/captn-conf/captn.example.cfg ]; then

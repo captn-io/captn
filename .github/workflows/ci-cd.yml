@@ -347,6 +347,34 @@ jobs:
         docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest captn --version
         echo "Image test completed successfully"
 
+    - name: Extract example config from container
+      run: |
+        # Create temporary directory for config
+        mkdir -p /tmp/captn-conf
+        
+        # Run container briefly to generate example config
+        # The container will create captn.example.cfg when /app/conf exists
+        docker run --rm \
+          -v /tmp/captn-conf:/app/conf \
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+          captn --help > /dev/null 2>&1 || true
+        
+        # Verify the example config was created
+        if [ ! -f /tmp/captn-conf/captn.example.cfg ]; then
+          echo "ERROR: captn.example.cfg was not created"
+          exit 1
+        fi
+        
+        echo "✅ Successfully extracted captn.example.cfg from container"
+        ls -lh /tmp/captn-conf/captn.example.cfg
+
+    - name: Upload example config as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: captn-example-config
+        path: /tmp/captn-conf/captn.example.cfg
+        retention-days: 1
+
   security:
     runs-on: ubuntu-latest
     needs: [check-changes, build]
@@ -515,7 +543,7 @@ jobs:
   update-config-docs:
     name: Update Configuration Example
     runs-on: ubuntu-latest
-    needs: [update-version-docs]
+    needs: [test, update-version-docs]
     if: |
       github.event_name != 'pull_request' &&
       github.ref != 'refs/heads/main' &&
@@ -530,6 +558,12 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         ref: ${{ github.ref_name }}
 
+    - name: Download example config artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: captn-example-config
+        path: /tmp/captn-conf
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -539,30 +573,10 @@ jobs:
       run: |
         python3 << 'EOF'
         import sys
-        import re
 
-        # Read the config.py file to extract example_content from create_example_config function
-        with open('app/utils/config.py', 'r', encoding='utf-8') as f:
-            config_content = f.read()
-
-        # Find the create_example_config function and extract example_content
-        # Look for: example_content = f"""
-        start_marker = 'example_content = f"""'
-        start_idx = config_content.find(start_marker)
-        if start_idx == -1:
-            print("ERROR: Could not find example_content in config.py")
-            sys.exit(1)
-
-        # Find the end: the closing """
-        start_idx += len(start_marker)
-        end_marker = '"""'
-        end_idx = config_content.find(end_marker, start_idx)
-        if end_idx == -1:
-            print("ERROR: Could not find closing marker for example_content")
-            sys.exit(1)
-
-        # Extract the full example content
-        example_content = config_content[start_idx:end_idx]
+        # Read the generated example config
+        with open('/tmp/captn-conf/captn.example.cfg', 'r', encoding='utf-8') as f:
+            example_content = f.read()
 
         # Find the [general] section (start of actual config)
         lines = example_content.split('\n')
@@ -573,7 +587,7 @@ jobs:
                 break
 
         if config_start is None:
-            print("ERROR: Could not find [general] section in example_content")
+            print("ERROR: Could not find [general] section in example config")
             sys.exit(1)
 
         # Extract everything from [general] onwards

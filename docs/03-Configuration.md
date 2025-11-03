@@ -1848,7 +1848,7 @@ scriptsDirectory =
 #   Minimum: 0s (immediate deletion allowed)
 #   Maximum: -
 #   Examples: "30s", "5m", "1h", "1d"
-# Default: 5m (5 minutes)
+# Default: "5m" (5 minutes)
 timeout =
 
 # Whether to continue with the update if pre-script fails
@@ -1878,7 +1878,7 @@ scriptsDirectory =
 #   Minimum: 0s (immediate deletion allowed)
 #   Maximum: -
 #   Examples: "30s", "5m", "1h", "1d"
-# Default: 5m (5 minutes)
+# Default: "5m" (5 minutes)
 timeout =
 
 # Whether to rollback the container if post-script fails

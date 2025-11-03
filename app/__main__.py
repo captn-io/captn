@@ -89,7 +89,6 @@ def clear_logs():
 
         for log_file in log_files:
             try:
-                # Delete the file completely
                 os.remove(log_file)
                 deleted_count += 1
                 logging.info(f"Deleted log file: {os.path.basename(log_file)}")
@@ -102,7 +101,6 @@ def clear_logs():
 
         for comparison_file in comparison_files:
             try:
-                # Delete the file completely
                 os.remove(comparison_file)
                 deleted_count += 1
                 logging.info(f"Deleted comparison file: {os.path.basename(comparison_file)}")
@@ -248,10 +246,10 @@ def main():
         # Setup logging
         setup_logging(log_level=args.log_level, dry_run=False)
 
-        # Start the scheduler
+        # Start scheduler
         start_scheduler()
 
-        # Keep the main thread alive
+        # Keep main thread alive
         try:
             while True:
                 time.sleep(1)

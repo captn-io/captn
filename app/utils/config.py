@@ -686,7 +686,7 @@ class Config:
                     elif not isinstance(allowed, bool):
                         errors.append(f"rules.{rule_name}.allow.{update_type} must be a boolean")
 
-        # Validate progressiveUpgrade (optional)
+        # Validate progressiveUpgrade
         if "progressiveUpgrade" in rule_data:
             if not isinstance(rule_data["progressiveUpgrade"], bool):
                 errors.append(f"rules.{rule_name}.progressiveUpgrade must be a boolean")
@@ -970,7 +970,7 @@ scriptsDirectory =
 #   Minimum: 0s (immediate deletion allowed)
 #   Maximum: -
 #   Examples: "30s", "5m", "1h", "1d"
-# Default: {DEFAULTS['preScripts']['timeout']} (5 minutes)
+# Default: "{DEFAULTS['preScripts']['timeout']}" (5 minutes)
 timeout =
 
 # Whether to continue with the update if pre-script fails
@@ -1000,7 +1000,7 @@ scriptsDirectory =
 #   Minimum: 0s (immediate deletion allowed)
 #   Maximum: -
 #   Examples: "30s", "5m", "1h", "1d"
-# Default: {DEFAULTS['postScripts']['timeout']} (5 minutes)
+# Default: "{DEFAULTS['postScripts']['timeout']}" (5 minutes)
 timeout =
 
 # Whether to rollback the container if post-script fails

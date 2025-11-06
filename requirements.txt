@@ -1,9 +1,9 @@
 certifi==2025.4.26
 charset-normalizer==3.4.2
-croniter>=2.0.0
+croniter>=6.0.0
 docker==7.1.0
 idna==3.10
 packaging==25.0
 requests==2.32.4
 urllib3==2.4.0
-argcomplete>=3.6.2
+argcomplete>=3.6.3

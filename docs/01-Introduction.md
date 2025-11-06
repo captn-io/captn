@@ -154,104 +154,81 @@ payment-service = security_only
 
 ## Best Practices
 
-### 1. Start with Dry-Run
+### 1. Review Release Notes After Updates
+**captn automates updates, but does not replace your responsibility.**
+
+Even after successful automated updates by captn, always review the release notes of the updated image versions. Breaking changes, deprecated features, or new configuration requirements may have been introduced that are critical for continued operation.
+
+### 2. Test Each Container Individually
+**Not all containers are equal.**
+
+Each image and container should be evaluated individually for automated updates:
+- Some applications handle updates seamlessly
+- Others require manual intervention or configuration changes
+
+Start with non-critical containers and gradually expand to more critical services.
+
+### 3. Implement a Backup Strategy
+**captn does not replace your backup strategy.**
+
+Automated updates increase the importance of regular backups. Consider what needs to be backed up!
+
+**Backup considerations:**
+- **Test your backups regularly** - verify they can actually be restored
+- **Know your recovery procedure** - document and practice the restore process
+- **Monitor backup success** - ensure backups are completing successfully
+
+Remember: A backup that hasn't been tested is not a backup.
+
+### 4. Start with Dry-Run
 Always test your configuration with `--dry-run` before applying updates:
 ```bash
 docker exec captn captn --dry-run
 ```
 
-### 2. Use Conservative Rules Initially
+### 5. Use Conservative Rules Initially
 Start with conservative update rules and gradually make them more permissive as you gain confidence:
 ```ini
 [assignments]
-# Start with patch_only or conservative
+# Start with patch_only or conservative - or a custom rule
 myapp = patch_only
 ```
 
-### 3. Test Updates in Development First
-Use different rules for development and production environments.
-
-### 4. Enable Notifications
-Configure notifications to stay informed about updates:
-```ini
-[notifiers]
-enabled = true
-
-[notifiers.telegram]
-enabled = true
-token = your_bot_token
-chatId = your_chat_id
-```
-
-### 5. Use Pre/Post-Scripts for Critical Services
-Implement health checks and backups via scripts:
-```bash
-# Create container-specific scripts
-~/captn/conf/scripts/database_pre.sh   # Backup before update
-~/captn/conf/scripts/database_post.sh  # Verify after update
-```
-
-### 6. Monitor Logs
-Regularly check captn's logs for issues:
-```bash
-docker logs captn
-# or
-tail -f ~/captn/logs/captn.log
-```
-
-### 7. Schedule Updates During Low-Traffic Periods
+### 6. Schedule Updates During Low-Traffic Periods
 Configure the cron schedule to run during maintenance windows:
 ```ini
 [general]
 cronSchedule = 0 3 * * *  # 3:00 AM daily
 ```
 
-### 8. Keep Backup Containers
+### 7. Keep Backup Containers
 Configure cleanup policies to retain recent backups:
 ```ini
 [prune]
 removeOldContainers = true
 minBackupAge = 48h
-minBackupsToKeep = 2
+minBackupsToKeep = 1
 ```
 
 ## Common Scenarios
 
-### Scenario 1: Update a Single Container
+### Update a Single Container
 ```bash
-docker exec captn captn --filter name=nginx
+docker exec captn captn --filter name=traefik
 ```
 
-### Scenario 2: Update Multiple Specific Containers
+### Update Multiple Specific Containers
 ```bash
-docker exec captn captn --filter name=web-* name=api-*
+docker exec captn captn --filter name=immich-*
 ```
-
-### Scenario 3: Update All Production Containers
-```bash
-docker exec captn captn --filter name=prod-*
-```
-
-### Scenario 4: Test Updates Without Applying
-```bash
-docker exec captn captn --dry-run --filter name=production-*
-```
-
-### Scenario 5: Scheduled Daily Updates
-Configure a cron schedule in your configuration:
-```ini
-[general]
-cronSchedule = 0 2 * * *  # Daily at 2:00 AM
-```
-The captn container runs in daemon mode by default.
 
 ## Troubleshooting
 
 ### Container Not Being Updated
 
-1. **Check if container matches filters**:
+1. **Check logs**:
    ```bash
-   docker exec captn captn --dry-run --filter name=mycontainer
+   docker exec captn captn --dry-run --log-level debug --clear-logs --filter name=mycontainer
    ```
 
 2. **Check assigned rule**:
@@ -259,28 +236,26 @@ The captn container runs in daemon mode by default.
    - Check rule allows the available update type
    - Verify minimum image age requirement
 
-3. **Check logs**:
-   ```bash
-   docker logs captn
-   # or with debug level
-   docker exec captn captn --log-level debug --filter name=mycontainer
-   ```
-
 ### Update Failed or Rolled Back
 
-1. **Check verification settings**:
+1. **Check logs**:
+   ```bash
+   cat ~/captn/logs/captn.log
+   ```
+
+2. **Check verification settings**:
    ```ini
    [updateVerification]
    maxWait = 480s
    stableTime = 15s
    ```
 
-2. **Check post-scripts**:
-   - Review post-script logs
-   - Test post-script manually
-   - Adjust timeout if needed
+3. **Try again in debug**:
+   ```bash
+   docker exec captn captn --log-level debug --clear-logs --filter name=mycontainer
+   ```
 
-3. **Inspect container logs**:
+4. **Inspect container logs**:
    ```bash
    docker logs mycontainer
    ```

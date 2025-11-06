@@ -5,5 +5,5 @@ docker==7.1.0
 idna==3.10
 packaging==25.0
 requests==2.32.4
-urllib3==2.4.0
+urllib3==2.5.0
 argcomplete>=3.6.3

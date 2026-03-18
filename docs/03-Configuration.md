@@ -954,6 +954,8 @@ chatId = 123456789
 1. For user: Message @userinfobot on Telegram
 2. For group: Add @userinfobot to your group
 
+> **Important:** After creating the bot and setting up captn, open your bot in Telegram and send it a `/start` message. Telegram does not allow bots to initiate conversations — the bot can only send you messages after you have started the chat first.
+
 **Complete Example:**
 ```ini
 [notifiers.telegram]

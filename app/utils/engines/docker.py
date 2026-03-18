@@ -608,7 +608,6 @@ def get_container_spec(client, container_inspect_data, container_name, image, im
         "working_dir": config.get("WorkingDir"),
         "hostname": config.get("Hostname"),
         "user": config.get("User"),
-        "mac_address": config.get("MacAddress"),
         "stdin_open": config.get("OpenStdin"),
         "tty": config.get("Tty"),
         "labels": config.get("Labels"),

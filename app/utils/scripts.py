@@ -206,6 +206,7 @@ def _run_script_with_timeout(script_path: str, env_vars: Dict[str, str], timeout
 
         process = subprocess.Popen(
             [script_path],
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             env=env_vars,

@@ -11,7 +11,7 @@ from .config import config
 from .common import parse_duration
 
 
-def execute_pre_script(container_name: str, dry_run: bool = False) -> Tuple[bool, str]:
+def execute_pre_script(container_name: str, dry_run: bool = False, update_type: Optional[str] = None, old_version: Optional[str] = None, new_version: Optional[str] = None) -> Tuple[bool, str]:
     """
     Execute the pre-update script for a container.
 
@@ -22,15 +22,18 @@ def execute_pre_script(container_name: str, dry_run: bool = False) -> Tuple[bool
     Parameters:
         container_name (str): Name of the container to execute the script for
         dry_run (bool): If True, only log what would be done without actually executing
+        update_type (str, optional): Type of update (e.g. 'digest', 'patch', 'minor', 'major')
+        old_version (str, optional): Current image tag before the update
+        new_version (str, optional): New image tag after the update
 
     Returns:
         Tuple[bool, str]: (success, output) - success indicates if script executed successfully,
                          output contains the script output or error message
     """
-    return _execute_script("pre", container_name, dry_run)
+    return _execute_script("pre", container_name, dry_run, update_type, old_version, new_version)
 
 
-def execute_post_script(container_name: str, dry_run: bool = False) -> Tuple[bool, str]:
+def execute_post_script(container_name: str, dry_run: bool = False, update_type: Optional[str] = None, old_version: Optional[str] = None, new_version: Optional[str] = None) -> Tuple[bool, str]:
     """
     Execute the post-update script for a container.
 
@@ -41,15 +44,18 @@ def execute_post_script(container_name: str, dry_run: bool = False) -> Tuple[boo
     Parameters:
         container_name (str): Name of the container to execute the script for
         dry_run (bool): If True, only log what would be done without actually executing
+        update_type (str, optional): Type of update (e.g. 'digest', 'patch', 'minor', 'major')
+        old_version (str, optional): Current image tag before the update
+        new_version (str, optional): New image tag after the update
 
     Returns:
         Tuple[bool, str]: (success, output) - success indicates if script executed successfully,
                          output contains the script output or error message
     """
-    return _execute_script("post", container_name, dry_run)
+    return _execute_script("post", container_name, dry_run, update_type, old_version, new_version)
 
 
-def _execute_script(script_type: str, container_name: str, dry_run: bool = False) -> Tuple[bool, str]:
+def _execute_script(script_type: str, container_name: str, dry_run: bool = False, update_type: Optional[str] = None, old_version: Optional[str] = None, new_version: Optional[str] = None) -> Tuple[bool, str]:
     """
     Execute a script with timeout and logging.
 
@@ -60,6 +66,9 @@ def _execute_script(script_type: str, container_name: str, dry_run: bool = False
         script_type (str): Type of script ("pre" or "post")
         container_name (str): Name of the container
         dry_run (bool): If True, only log what would be done without actually executing
+        update_type (str, optional): Type of update (e.g. 'digest', 'patch', 'minor', 'major')
+        old_version (str, optional): Current image tag before the update
+        new_version (str, optional): New image tag after the update
 
     Returns:
         Tuple[bool, str]: (success, output) - success indicates if script executed successfully,
@@ -85,7 +94,7 @@ def _execute_script(script_type: str, container_name: str, dry_run: bool = False
     logging.info(f"Executing {script_type}-script: '{script_path}' (timeout: {timeout}s)", extra={"indent": 4})
 
     try:
-        env_vars = _prepare_environment(container_name, script_type)
+        env_vars = _prepare_environment(container_name, script_type, update_type, old_version, new_version)
         result = _run_script_with_timeout(script_path, env_vars, timeout)
 
         if result["success"]:
@@ -156,7 +165,7 @@ def _get_script_path(script_type: str, container_name: str) -> Optional[str]:
     return None
 
 
-def _prepare_environment(container_name: str, script_type: str) -> Dict[str, str]:
+def _prepare_environment(container_name: str, script_type: str, update_type: Optional[str] = None, old_version: Optional[str] = None, new_version: Optional[str] = None) -> Dict[str, str]:
     """
     Prepare environment variables for script execution.
 
@@ -166,6 +175,9 @@ def _prepare_environment(container_name: str, script_type: str) -> Dict[str, str
     Parameters:
         container_name (str): Name of the container
         script_type (str): Type of script ("pre" or "post")
+        update_type (str, optional): Type of update (e.g. 'digest', 'patch', 'minor', 'major')
+        old_version (str, optional): Current image tag before the update
+        new_version (str, optional): New image tag after the update
 
     Returns:
         Dict[str, str]: Environment variables dictionary for script execution
@@ -178,6 +190,9 @@ def _prepare_environment(container_name: str, script_type: str) -> Dict[str, str
         "CAPTN_LOG_LEVEL": config.logging.level,
         "CAPTN_CONFIG_DIR": "/app/conf",
         "CAPTN_SCRIPTS_DIR": _get_script_config(script_type).get("scriptsDirectory", "/app/conf/scripts"),
+        "CAPTN_UPDATE_TYPE": update_type or "",
+        "CAPTN_OLD_VERSION": old_version or "",
+        "CAPTN_NEW_VERSION": new_version or "",
     })
     return env
 

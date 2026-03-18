@@ -416,7 +416,13 @@ def main():
                             continue
 
                         # 2. Run Pre-Scripts
-                        pre_success, pre_output = execute_pre_script(container.name, dry_run)
+                        pre_success, pre_output = execute_pre_script(
+                            container.name,
+                            dry_run,
+                            update_type=update_type,
+                            old_version=image_metadata.get("tag") if image_metadata else None,
+                            new_version=remote_image_tag.get("name"),
+                        )
                         if not pre_success and not should_continue_on_pre_failure():
                             error_msg = f"Pre-script failed for container '{container.name}'"
                             logging.error(error_msg, extra={"indent": 4})
@@ -473,7 +479,7 @@ def main():
                             current_tag = image_metadata.get("tag") if image_metadata else "Unknown"
                             new_tag = remote_image_tag.get("name") if remote_image_tag else "Unknown"
 
-                            new_container = engines.recreate_container(client, container, new_image_reference, container_inspect_data, dry_run, image_inspect_data, notification_manager)
+                            new_container = engines.recreate_container(client, container, new_image_reference, container_inspect_data, dry_run, image_inspect_data, notification_manager, update_type=update_type, old_version=current_tag, new_version=new_tag)
                             if new_container:
                                 try:
                                     # Refresh container and used image information

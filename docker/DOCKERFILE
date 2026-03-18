@@ -39,6 +39,10 @@ RUN apk add --no-cache \
 # Set bash as default shell (after bash is installed)
 SHELL ["/bin/bash", "-c"]
 
+# Prevent Python from writing .pyc files during build and runtime
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
 # Create python virtual environment
 ENV VIRTUAL_ENV=/opt/venv
 RUN python3 -m venv $VIRTUAL_ENV
@@ -50,6 +54,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project files
 COPY app/ .
+RUN find /app -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
 # Copy required files from docker directory
 COPY docker/entrypoint.sh /app/entrypoint.sh
@@ -76,8 +81,6 @@ RUN mkdir -p /app/conf /app/logs /app/data /app/tmp
 
 # Set environment variables
 ENV PYTHONPATH=/app
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
 
 # Production entrypoint and default command
 ENTRYPOINT ["/app/entrypoint.sh"]

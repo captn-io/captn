@@ -223,6 +223,11 @@ def compare_semantic_versions(old_version: str, new_version: str) -> Tuple[str, 
     in the format X.Y.Z or X.Y.Z.BUILD, where each component is compared
     hierarchically to determine the significance of the update.
 
+    Downgrades (new_version < old_version across all components) are detected via
+    tuple comparison before any individual component checks. This prevents false
+    positives such as classifying v2.2.3 -> v1.43.0 as a 'minor' update because
+    43 > 2, when in fact the major version decreased.
+
     Args:
         old_version (str): The current/old version string in semantic format
         new_version (str): The new version string in semantic format
@@ -238,13 +243,20 @@ def compare_semantic_versions(old_version: str, new_version: str) -> Tuple[str, 
         - 'patch': Patch version number increased (X.Y.Z -> X.Y.Z+1)
         - 'build': Build number increased (X.Y.Z.B -> X.Y.Z.B+1)
         - 'digest': Same version, likely digest-only change
-        - 'unknown': Invalid format or no clear version relationship
+        - 'unknown': Invalid format, downgrade detected, or no clear version relationship
     """
     old_parts = normalize_version(old_version)
     new_parts = normalize_version(new_version)
 
     if old_parts == (-1, -1, -1, -1) or new_parts == (-1, -1, -1, -1):
         return 'unknown', "Invalid semantic version format"
+
+    if new_parts < old_parts:
+        logging.warning(
+            f"Downgrade detected: {old_version} -> {new_version} - ignoring",
+            extra={"indent": 4},
+        )
+        return 'unknown', f"Downgrade detected: {old_version} -> {new_version}"
 
     old_major, old_minor, old_patch, old_build = old_parts
     new_major, new_minor, new_patch, new_build = new_parts

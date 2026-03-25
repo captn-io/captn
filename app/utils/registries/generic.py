@@ -83,15 +83,15 @@ def filter_image_tags(tags, imageTag):
 def sort_tags(tags):
     """
     Sort a list of tags in descending order using normalized version comparison.
-    
+
     This function sorts tags by first attempting to normalize them as version strings
     using the normalize_version() function from common.py. Tags that can be normalized
     as versions are sorted by their version tuple (major, minor, patch, build).
     Non-version tags fall back to string comparison.
-    
+
     Parameters:
         tags (list): List of tag objects (dicts with 'name' field) or tag strings
-        
+
     Returns:
         list: Sorted list of tags in descending order (newest versions first)
     """
@@ -100,7 +100,7 @@ def sort_tags(tags):
 
         # Use normalize_version to normalize the version string
         normalized_version = normalize_version(tag)
-        
+
         # If normalize_version returns valid version tuple, use it for sorting
         if normalized_version != (-1, -1, -1, -1):
             return (0, normalized_version)
@@ -114,21 +114,30 @@ def sort_tags(tags):
 def truncate_tags(tags, imageTag):
     """
     Truncate the list of sorted tags to only include tags from (and including) the given imageTag upward.
-    
+
     This function filters the tag list to only include tags that are at or above
     the specified image tag in the version hierarchy. Assumes tags are already
     sorted in descending order.
+
+    If the current imageTag is not found in the list, an empty list is returned to
+    prevent updates based on an incomplete tag list (e.g. caused by a pagination error).
 
     Parameters:
         tags (list): List of sorted tags in descending order
         imageTag (str): Tag to truncate from (inclusive)
 
     Returns:
-        list: Truncated list of tags from the specified tag upward
+        list: Truncated list of tags from the specified tag upward, or empty list
+              if imageTag is not found in tags.
     """
     truncated = []
     for tag in tags:
         truncated.append(tag)
         if extract_tag_name(tag) == imageTag:
-            break
-    return truncated
+            return truncated
+    logger.warning(
+        f"Current tag '{imageTag}' not found in fetched tag list - "
+        f"returning empty list to prevent updates based on incomplete data",
+        extra={"indent": 2},
+    )
+    return []

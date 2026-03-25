@@ -149,14 +149,19 @@ captn provides several environment variables to scripts:
 
 ### Available Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `CAPTN_CONTAINER_NAME` | Name of the container being updated | `nginx` |
-| `CAPTN_SCRIPT_TYPE` | Type of script (`pre` or `post`) | `pre` |
-| `CAPTN_DRY_RUN` | Whether this is a dry-run | `true` or `false` |
-| `CAPTN_LOG_LEVEL` | Current log level | `INFO` |
-| `CAPTN_CONFIG_DIR` | captn configuration directory | `/app/conf` |
-| `CAPTN_SCRIPTS_DIR` | Scripts directory | `/app/conf/scripts` |
+| Variable               | Description                                       | Example                                      |
+| ---------------------- | ------------------------------------------------- | -------------------------------------------- |
+| `CAPTN_CONTAINER_NAME` | Name of the container being updated               | `nginx`                                      |
+| `CAPTN_SCRIPT_TYPE`    | Type of script (`pre` or `post`)                  | `pre`                                        |
+| `CAPTN_DRY_RUN`        | Whether this is a dry-run                         | `true` or `false`                            |
+| `CAPTN_LOG_LEVEL`      | Current log level                                 | `INFO`                                       |
+| `CAPTN_CONFIG_DIR`     | captn configuration directory                     | `/app/conf`                                  |
+| `CAPTN_SCRIPTS_DIR`    | Scripts directory                                 | `/app/conf/scripts`                          |
+| `CAPTN_UPDATE_TYPE`    | Type of the update being performed                | `digest`, `patch`, `minor`, `major`, `build` |
+| `CAPTN_OLD_VERSION`    | Image tag currently running (before the update)   | `1.2.3`                                      |
+| `CAPTN_NEW_VERSION`    | Image tag that will be applied (after the update) | `1.2.4`                                      |
+
+> **Note:** `CAPTN_UPDATE_TYPE`, `CAPTN_OLD_VERSION` and `CAPTN_NEW_VERSION` are always set. For digest-only updates `CAPTN_OLD_VERSION` and `CAPTN_NEW_VERSION` contain the same tag value, as the tag itself doesn't change.
 
 ### Using Environment Variables
 
@@ -166,10 +171,17 @@ captn provides several environment variables to scripts:
 echo "Container: $CAPTN_CONTAINER_NAME"
 echo "Script Type: $CAPTN_SCRIPT_TYPE"
 echo "Dry Run: $CAPTN_DRY_RUN"
+echo "Update: $CAPTN_OLD_VERSION -> $CAPTN_NEW_VERSION ($CAPTN_UPDATE_TYPE)"
 
 if [ "$CAPTN_DRY_RUN" = "true" ]; then
     echo "Would perform backup..."
     exit 0
+fi
+
+# Run migrations only on major or minor updates
+if [ "$CAPTN_UPDATE_TYPE" = "major" ] || [ "$CAPTN_UPDATE_TYPE" = "minor" ]; then
+    echo "Version upgrade detected ($CAPTN_OLD_VERSION -> $CAPTN_NEW_VERSION), running migrations..."
+    # run_migrations
 fi
 
 # Actual backup logic
@@ -846,6 +858,9 @@ export CAPTN_DRY_RUN=true
 export CAPTN_LOG_LEVEL=INFO
 export CAPTN_CONFIG_DIR=/app/conf
 export CAPTN_SCRIPTS_DIR=/app/conf/scripts
+export CAPTN_UPDATE_TYPE=minor
+export CAPTN_OLD_VERSION=17.4
+export CAPTN_NEW_VERSION=17.5
 
 ./postgres_pre.sh
 ```
@@ -967,9 +982,6 @@ docker exec captn captn --log-level debug --filter name=yourcontainer
 set -x  # Print commands as they execute
 
 echo "=== Debug Information ==="
-echo "Container: $CAPTN_CONTAINER_NAME"
-echo "Script Type: $CAPTN_SCRIPT_TYPE"
-echo "Dry Run: $CAPTN_DRY_RUN"
 env | grep CAPTN_  # Print all captn variables
 ```
 
@@ -979,6 +991,9 @@ env | grep CAPTN_  # Print all captn variables
 export CAPTN_CONTAINER_NAME=mycontainer
 export CAPTN_SCRIPT_TYPE=pre
 export CAPTN_DRY_RUN=false
+export CAPTN_UPDATE_TYPE=patch
+export CAPTN_OLD_VERSION=1.2.3
+export CAPTN_NEW_VERSION=1.2.4
 
 # Run script
 /app/conf/scripts/mycontainer_pre.sh
@@ -1015,9 +1030,12 @@ fi
 set -e
 
 echo "=== Script Started ==="
-echo "Container: $CAPTN_CONTAINER_NAME"
-echo "Script Type: $CAPTN_SCRIPT_TYPE"
-echo "Dry Run: $CAPTN_DRY_RUN"
+echo "Container:    $CAPTN_CONTAINER_NAME"
+echo "Script Type:  $CAPTN_SCRIPT_TYPE"
+echo "Dry Run:      $CAPTN_DRY_RUN"
+echo "Update Type:  $CAPTN_UPDATE_TYPE"
+echo "Old Version:  $CAPTN_OLD_VERSION"
+echo "New Version:  $CAPTN_NEW_VERSION"
 
 if [ "$CAPTN_DRY_RUN" = "true" ]; then
     echo "Would perform actions..."

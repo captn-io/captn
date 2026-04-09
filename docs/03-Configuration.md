@@ -1656,6 +1656,14 @@ dryRun =
 # Default: "30 2 * * *" (daily at 2:30 AM)
 cronSchedule =
 
+# Maximum time a single captn execution run may take before it is considered hung
+# Relevant when running in daemon/scheduler mode; the process is killed after this duration
+# Possible values: Duration string
+#   Format: number followed by unit: 's' (seconds), 'm' (minutes), 'h' (hours), 'd' (days)
+#   Examples: '6h', '30m', '2h'
+# Default: "10h"
+executionTimeout =
+
 [notifiers]
 # Enable/disable all notifications globally
 # Possible values: true, false

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from croniter import croniter
 
 from .config import config
+from .common import parse_duration
 
 logger = logging.getLogger(__name__)
 
@@ -141,9 +142,12 @@ class CaptnScheduler:
             logger.info("Starting captn execution")
 
             # Run captn using the shell script to ensure proper locking
+            timeout_str = getattr(config.general, 'executionTimeout', '10h')
+            timeout_seconds = parse_duration(timeout_str, 's')
+            logger.info(f"Execution timeout: {timeout_str} ({timeout_seconds}s)")
             result = subprocess.run([
                 '/app/cli/captn.sh'
-            ], timeout=18000)  # 5 hours timeout
+            ], timeout=timeout_seconds)
 
             if result.returncode == 0:
                 logger.info("captn execution completed successfully")
@@ -151,7 +155,8 @@ class CaptnScheduler:
                 logger.error(f"captn execution failed with return code {result.returncode}")
 
         except subprocess.TimeoutExpired:
-            logger.error("captn execution timed out after 5 hours")
+            timeout_str = getattr(config.general, 'executionTimeout', '10h')
+            logger.error(f"captn execution timed out after {timeout_str}")
         except Exception as e:
             logger.error(f"Error executing captn: {e}")
 

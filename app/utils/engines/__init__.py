@@ -103,7 +103,7 @@ def get_container_spec(client, container, container_inspect_data, image, image_i
         )
 
 
-def recreate_container(client, container, image, container_inspect_data, dry_run, image_inspect_data=None, notification_manager=None):
+def recreate_container(client, container, image, container_inspect_data, dry_run, image_inspect_data=None, notification_manager=None, update_type=None, old_version=None, new_version=None):
     """
     Recreate a container with a new image.
 
@@ -117,6 +117,9 @@ def recreate_container(client, container, image, container_inspect_data, dry_run
         container_inspect_data: Container inspection data
         dry_run (bool): If True, only log what would be done without actually recreating
         image_inspect_data: Image inspection data (optional)
+        update_type (str, optional): Type of update (e.g. 'digest', 'patch', 'minor', 'major')
+        old_version (str, optional): Image tag before the update
+        new_version (str, optional): Image tag after the update
 
     Returns:
         Container object if successful, None otherwise
@@ -124,7 +127,7 @@ def recreate_container(client, container, image, container_inspect_data, dry_run
     engine = "docker"
 
     if engine == "docker":
-        return docker.recreate_container(client, container, image, container_inspect_data, dry_run, image_inspect_data, notification_manager)
+        return docker.recreate_container(client, container, image, container_inspect_data, dry_run, image_inspect_data, notification_manager, update_type=update_type, old_version=old_version, new_version=new_version)
 
 
 def is_self_container(container_name, container_id):

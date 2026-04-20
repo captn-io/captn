@@ -9,6 +9,7 @@ DEFAULTS = {
     "general": {
         "dryRun": "false",
         "cronSchedule": "30 2 * * *",
+        "executionTimeout": "10h",
     },
     "update": {
         "delayBetweenUpdates": "2m",
@@ -362,6 +363,10 @@ class Config:
             if hasattr(general, "dryRun"):
                 if not isinstance(general.dryRun, bool):
                     errors.append("general.dryRun must be a boolean (true/false)")
+
+            if hasattr(general, "executionTimeout"):
+                if not self.is_valid_duration(general.executionTimeout):
+                    errors.append("general.executionTimeout must be a valid duration (e.g. '10h', '30m')")
 
         # Validate logging section
         if "logging" in self._namespaces:
@@ -775,6 +780,14 @@ dryRun =
 #   "0 2 * * 0"      - Weekly on Sunday at 2:00 AM
 # Default: "{DEFAULTS['general']['cronSchedule']}" (daily at 2:30 AM)
 cronSchedule =
+
+# Maximum time a single captn execution run may take before it is considered hung
+# Relevant when running in daemon/scheduler mode; the process is killed after this duration
+# Possible values: Duration string
+#   Format: number followed by unit: 's' (seconds), 'm' (minutes), 'h' (hours), 'd' (days)
+#   Examples: '6h', '30m', '2h'
+# Default: "{DEFAULTS['general']['executionTimeout']}"
+executionTimeout =
 
 [notifiers]
 # Enable/disable all notifications globally

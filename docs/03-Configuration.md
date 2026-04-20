@@ -159,6 +159,16 @@ cronSchedule = 0 2 * * 0
 cronSchedule = 0 3 1 * *
 ```
 
+#### `executionTimeout`
+
+Maximum time a single captn execution run may take before it is considered hung and killed. Only relevant when running in daemon/scheduler mode. After this duration, the subprocess is forcefully terminated and an error is logged.
+
+- **Type:** Duration
+- **Default:** `10h`
+- **Minimum:** `1m`
+
+**Note:** If captn manages many containers with slow image pulls or long-running pre/post scripts, increase accordingly.
+
 ---
 
 ### `[logging]`
@@ -1655,6 +1665,14 @@ dryRun =
 #   "0 2 * * 0"      - Weekly on Sunday at 2:00 AM
 # Default: "30 2 * * *" (daily at 2:30 AM)
 cronSchedule =
+
+# Maximum time a single captn execution run may take before it is considered hung
+# Relevant when running in daemon/scheduler mode; the process is killed after this duration
+# Possible values: Duration string
+#   Format: number followed by unit: 's' (seconds), 'm' (minutes), 'h' (hours), 'd' (days)
+#   Examples: '6h', '30m', '2h'
+# Default: "10h"
+executionTimeout =
 
 [notifiers]
 # Enable/disable all notifications globally

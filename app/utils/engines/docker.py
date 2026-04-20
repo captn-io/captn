@@ -829,7 +829,7 @@ def create_container_inspect_comparison(original_inspect_data, new_container, co
         return None
 
 
-def recreate_container(client, container, image, container_inspect_data, dry_run, image_inspect_data=None, notification_manager=None):
+def recreate_container(client, container, image, container_inspect_data, dry_run, image_inspect_data=None, notification_manager=None, update_type=None, old_version=None, new_version=None):
     """
     Recreate a container with a new image.
 
@@ -847,6 +847,9 @@ def recreate_container(client, container, image, container_inspect_data, dry_run
         container_inspect_data: Original container inspection data
         dry_run (bool): If True, only log what would be done without actually recreating
         image_inspect_data: Image inspection data for environment filtering (optional)
+        update_type (str, optional): Type of update (e.g. 'digest', 'patch', 'minor', 'major')
+        old_version (str, optional): Image tag before the update
+        new_version (str, optional): Image tag after the update
 
     Returns:
         Container object if successful, None otherwise
@@ -950,7 +953,7 @@ def recreate_container(client, container, image, container_inspect_data, dry_run
         logging.info( f"{'Would have recreated' if dry_run else 'Recreated'} new container '{new_container.id}' with image '{image}'", extra={"indent": 4}, )
 
         # Execute post-script after successful container recreation
-        post_success, post_output = execute_post_script(original_name, dry_run)
+        post_success, post_output = execute_post_script(original_name, dry_run, update_type=update_type, old_version=old_version, new_version=new_version)
         if not post_success:
             error_msg = f"Post-script failed for container '{original_name}'"
             logging.error(error_msg, extra={"indent": 4})

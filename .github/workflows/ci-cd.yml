@@ -96,6 +96,7 @@ jobs:
         echo ""
         echo "Allowed licenses (AGPL-3.0 compatible):"
         echo "  - Apache-2.0, Apache Software License"
+        echo "  - Apache-2.0 OR BSD-2-Clause (SPDX dual-license, e.g. packaging>=26)"
         echo "  - MIT, MIT License"
         echo "  - BSD-2-Clause, BSD-3-Clause, BSD License"
         echo "  - MPL-2.0, Mozilla Public License 2.0"
@@ -109,6 +110,7 @@ jobs:
           --with-license-file \
           --no-license-path \
           --allow-only="\
+            Apache-2.0 OR BSD-2-Clause;\
             Apache-2.0;\
             Apache Software License;\
             MIT;\

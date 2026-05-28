@@ -1,0 +1,25 @@
+name: Mirror to GitLab
+
+on:
+  push:
+    branches:
+      - '**'
+    tags:
+      - '*'
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Mirror to GitLab
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLAB_TOKEN: ${{ secrets.GITLAB_JKNET_TOKEN }}
+        run: |
+          git clone --mirror "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" repo.git
+          cd repo.git
+          git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@${{ secrets.GITLAB_JKNET_SERVER }}/captn-io/captn.git"
+          git push --mirror gitlab

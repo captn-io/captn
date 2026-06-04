@@ -1713,10 +1713,14 @@ executionTimeout =
 # Possible values: true, false
 # Default: false
 enabled =
-# When to send notifications: changes (default) or all
+# When to send notifications
+# Possible values: changes, all
+#   changes - only on updates, failures, skips, errors, or warnings (recommended)
+#   all     - after every run with at least one container checked (legacy)
 # Default: changes
 sendOn =
 # Send notifications for dry-run executions
+# Possible values: true, false
 # Default: true
 sendOnDryRun =
 

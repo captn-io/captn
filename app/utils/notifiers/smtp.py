@@ -5,6 +5,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from .base import BaseNotifier
+from .report import resolve_status_banner, format_duration
 from typing import List, Dict, Any
 from datetime import datetime
 from app import __version__
@@ -189,38 +190,24 @@ class SMTPNotifier(BaseNotifier):
         else:
             timestamp_str = str(timestamp)
 
-        # Calculate duration
-        duration_str = ""
-        if start_time and end_time:
-            total_duration = (end_time - start_time).total_seconds()
-            if total_duration < 60:
-                duration_str = f"{total_duration:.1f}s"
-            elif total_duration < 3600:
-                duration_str = f"{total_duration / 60:.1f}m"
-            else:
-                duration_str = f"{total_duration / 3600:.1f}h"
+        duration_str = format_duration(start_time, end_time)
 
         # Separate successful and failed updates
         successful_updates = [detail for detail in update_details if detail.get("status") == "succeeded"]
         failed_updates = [detail for detail in update_details if detail.get("status") == "failed"]
 
-        # Determine overall status
-        if containers_failed > 0:
-            status_color = "#dc3545"  # Red
-            status_text = "Issues Detected"
-            status_icon = "⚠️"
-        elif containers_updated > 0:
-            status_color = "#28a745"  # Green
-            status_text = "Updates Successful"
-            status_icon = "✅"
-        elif containers_skipped > 0:
-            status_color = "#28a745"  # Green
-            status_text = "No Updates Needed"
-            status_icon = "✅"
+        stats = {
+            "containers_processed": containers_processed,
+            "containers_updated": containers_updated,
+            "containers_failed": containers_failed,
+            "containers_skipped": containers_skipped,
+            "errors": errors,
+        }
+        status_banner = resolve_status_banner(stats)
+        if status_banner:
+            status_text, status_icon, status_color = status_banner
         else:
-            status_color = "#6c757d"  # Gray
-            status_text = "No Containers Processed"
-            status_icon = "ℹ️"
+            status_text = status_icon = status_color = None
 
         # Build HTML content
         html = f"""
@@ -424,9 +411,7 @@ class SMTPNotifier(BaseNotifier):
             <p style="margin: 10px 0 0 0; opacity: 0.8;">{hostname} • {timestamp_str}</p>
         </div>
 
-        <div class="status-banner">
-            {status_icon} {status_text}
-        </div>
+        {self._generate_status_banner(status_icon, status_text, status_color)}
 
         <div class="content">
             {self._generate_dry_run_notice(dry_run)}
@@ -436,7 +421,7 @@ class SMTPNotifier(BaseNotifier):
                 <div class="summary">
                     <div class="stat-card">
                         <div class="stat-number">{containers_processed}</div>
-                        <div class="stat-label">Processed</div>
+                        <div class="stat-label">Checked</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-number" style="color: #28a745;">{containers_updated}</div>
@@ -471,6 +456,16 @@ class SMTPNotifier(BaseNotifier):
 """
 
         return html
+
+    def _generate_status_banner(self, status_icon: str, status_text: str, status_color: str) -> str:
+        """Generate status banner HTML, or empty string when omitted."""
+        if not status_text:
+            return ""
+        return f"""
+        <div class="status-banner">
+            {status_icon} {status_text}
+        </div>
+        """
 
     def _generate_dry_run_notice(self, dry_run: bool) -> str:
         """Generate dry run notice if applicable."""

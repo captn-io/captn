@@ -3,6 +3,7 @@ import logging
 import json
 import os
 from .base import BaseNotifier
+from .report import format_duration
 from typing import List, Dict, Any
 from datetime import datetime
 
@@ -325,20 +326,13 @@ class TelegramNotifier(BaseNotifier):
 
         # Summary
         lines.append("<b>📊 Summary:</b>")
-        lines.append(f"• Processed: {containers_processed}")
+        lines.append(f"• Checked: {containers_processed}")
         lines.append(f"• Updated: {containers_updated}")
         lines.append(f"• Failed: {containers_failed}")
         lines.append(f"• Skipped: {containers_skipped}")
 
-        # Add total duration if available
-        if start_time and end_time:
-            total_duration = (end_time - start_time).total_seconds()
-            if total_duration < 60:
-                duration_str = f"{total_duration:.1f}s"
-            elif total_duration < 3600:
-                duration_str = f"{total_duration / 60:.1f}m"
-            else:
-                duration_str = f"{total_duration / 3600:.1f}h"
+        duration_str = format_duration(start_time, end_time)
+        if duration_str:
             lines.append(f"• Duration: {duration_str}")
 
         lines.append("")

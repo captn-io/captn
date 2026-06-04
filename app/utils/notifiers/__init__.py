@@ -4,6 +4,7 @@ from typing import Dict, Any, List, Optional
 from .base import NotificationCollector
 from .telegram import TelegramNotifier
 from .smtp import SMTPNotifier
+from .report import should_send_notification
 from ..config import config
 from ..common import get_docker_host_hostname
 
@@ -108,6 +109,14 @@ class NotificationManager:
         """Set the end time of the update process."""
         self.update_stats["end_time"] = datetime.now()
 
+    def should_notify(self, dry_run: bool = False) -> bool:
+        """Return whether this run should trigger notifications."""
+        if not self.notifiers:
+            return False
+        if not hasattr(config, "notifiers"):
+            return False
+        return should_send_notification(self.update_stats, dry_run, config.notifiers)
+
     def send_update_report(self, dry_run: bool = False):
         """Send update report to all configured notifiers."""
         if not self.notifiers:
@@ -116,6 +125,15 @@ class NotificationManager:
 
         # Set end time before sending report
         self.set_end_time()
+
+        if not self.should_notify(dry_run):
+            send_on = getattr(config.notifiers, "sendOn", "changes")
+            logging.debug(
+                "Skipping notification: no noteworthy events (sendOn=%s, dry_run=%s)",
+                send_on,
+                dry_run,
+            )
+            return
 
         # Prepare update data
         update_data = {

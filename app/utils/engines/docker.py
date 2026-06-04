@@ -484,10 +484,20 @@ def pull_image(client, image_reference, dry_run):
             logging.debug(f"No credentials found for registry {registry}, attempting anonymous pull", extra={"indent": 6})
 
         logging.info(f"{'Would pull' if dry_run else 'Pulling'} image '{image_reference}'", extra={"indent": 4})
-        image = client.images.pull(image_reference) if not dry_run else None
-        if not dry_run and image:
+        if dry_run:
+            return None
+
+        for event in client.api.pull(image_reference, stream=True, decode=True):
+            if isinstance(event, dict) and event.get("error"):
+                raise docker_errors.APIError(event["error"])
+
+        image = client.images.get(image_reference)
+        if image:
             logging.debug(f"Successfully pulled image '{image.short_id}'", extra={"indent": 6})
         return image
+    except KeyboardInterrupt:
+        logging.warning(f"Image pull interrupted for '{image_reference}'", extra={"indent": 4})
+        raise
     except docker_errors.APIError as e:
         logging.error(f"Failed to pull image '{image_reference}': {str(e)}", extra={"indent": 6})
         return None
@@ -650,10 +660,21 @@ def verify_container_start(container, dry_run=False):
 
     logging.info( f"{'Would verify' if dry_run else 'Verifying'} startup of container '{container.name}'", extra={"indent": 4}, )
 
+    if dry_run:
+        if grace_period > 0:
+            logging.debug(
+                f"Would wait {grace_period}s before startup verification begins",
+                extra={"indent": 6},
+            )
+        logging.debug(
+            f"Would monitor container stability for up to {max_wait}s (check every {check_interval}s, stable for {stable_time}s)",
+            extra={"indent": 6},
+        )
+        return True
+
     if grace_period > 0:
-        logging.debug( f"{'Would wait' if dry_run else 'Waiting'} {grace_period}s before startup verification begins", extra={"indent": 6}, )
-        if not dry_run:
-            time.sleep(grace_period)
+        logging.debug( f"Waiting {grace_period}s before startup verification begins", extra={"indent": 6}, )
+        time.sleep(grace_period)
 
     stable_start = None
     container.reload()

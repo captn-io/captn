@@ -9,6 +9,7 @@ from typing import Optional
 import requests
 
 from ..config import config
+from ..interrupt import check_interrupted
 from . import generic
 from .auth import get_credentials
 
@@ -127,6 +128,8 @@ def get_image_tags(imageTagsUrl, imageTag, max_pages=config.docker.pageCrawlLimi
         logger.debug(f"No authentication configured for Docker Hub (anonymous)", extra={"indent": 2})
 
     while imageTagsUrl:
+        check_interrupted()
+
         if max_pages is not None and page_count >= max_pages:
             break
 

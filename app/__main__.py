@@ -17,6 +17,7 @@ from .utils.common import setup_logging
 from .utils.config import config, create_example_config
 from .utils.scripts import execute_pre_script, execute_post_script, should_continue_on_pre_failure, should_rollback_on_post_failure
 from .utils.notifiers import notification_manager
+from .utils.interrupt import install_interrupt_handlers
 
 
 def get_container_names():
@@ -269,6 +270,7 @@ def main():
         clear_logs()
 
     setup_logging(log_level=args.log_level, dry_run=dry_run)
+    install_interrupt_handlers()
 
     client = engines.get_client()
     if not client:
@@ -420,14 +422,13 @@ def main():
                             container.name,
                             dry_run,
                             update_type=update_type,
-                            old_version=image_metadata.get("tag") if image_metadata else None,
+                            old_version=current_tag,
                             new_version=remote_image_tag.get("name"),
                         )
                         if not pre_success and not should_continue_on_pre_failure():
                             error_msg = f"Pre-script failed for container '{container.name}'"
                             logging.error(error_msg, extra={"indent": 4})
                             notification_manager.add_error(error_msg)
-                            current_tag = image_metadata.get("tag") if image_metadata else "Unknown"
                             new_tag = remote_image_tag.get("name") if remote_image_tag else "Unknown"
                             update_duration = time.time() - update_start_time
                             notification_manager.add_update_detail(
@@ -475,8 +476,6 @@ def main():
                             )
                             break
                         else:
-                            # Prepare update info for potential failure tracking
-                            current_tag = image_metadata.get("tag") if image_metadata else "Unknown"
                             new_tag = remote_image_tag.get("name") if remote_image_tag else "Unknown"
 
                             new_container = engines.recreate_container(client, container, new_image_reference, container_inspect_data, dry_run, image_inspect_data, notification_manager, update_type=update_type, old_version=current_tag, new_version=new_tag)
@@ -608,4 +607,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    try:
+        main()
+    except KeyboardInterrupt:
+        logging.info("Interrupted by user, exiting...")
+        sys.exit(130)

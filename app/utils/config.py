@@ -67,6 +67,8 @@ DEFAULTS = {
     },
     "notifiers": {
         "enabled": "false",
+        "sendOn": "changes",
+        "sendOnDryRun": "true",
     },
     "notifiers.telegram": {
         "enabled": "false",
@@ -564,6 +566,13 @@ class Config:
             notifiers = self._namespaces["notifiers"]
             if hasattr(notifiers, "enabled") and not isinstance(notifiers.enabled, bool):
                 errors.append("notifiers.enabled must be a boolean (true/false)")
+            if hasattr(notifiers, "sendOn"):
+                valid_send_on = ("changes", "all")
+                send_on = notifiers.sendOn
+                if isinstance(send_on, str) and send_on.strip().lower() not in valid_send_on:
+                    errors.append(f"notifiers.sendOn must be one of: {', '.join(valid_send_on)}")
+            if hasattr(notifiers, "sendOnDryRun") and not isinstance(notifiers.sendOnDryRun, bool):
+                errors.append("notifiers.sendOnDryRun must be a boolean (true/false)")
 
         # Validate notifiers.telegram
         if "notifiers.telegram" in self._namespaces:
@@ -794,6 +803,16 @@ executionTimeout =
 # Possible values: true, false
 # Default: {DEFAULTS['notifiers']['enabled']}
 enabled =
+# When to send notifications
+# Possible values: changes, all
+#   changes - only on updates, failures, skips, errors, or warnings (recommended)
+#   all     - after every run with at least one container checked (legacy)
+# Default: {DEFAULTS['notifiers']['sendOn']}
+sendOn =
+# Send notifications for dry-run executions
+# Possible values: true, false
+# Default: {DEFAULTS['notifiers']['sendOnDryRun']}
+sendOnDryRun =
 
 [notifiers.telegram]
 # Enable Telegram notifications

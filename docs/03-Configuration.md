@@ -909,6 +909,40 @@ enabled = false
 
 **Note:** Even if individual notifiers are enabled, they won't work if this is `false`.
 
+#### `sendOn`
+
+Control when update reports are sent.
+
+- **Type:** String
+- **Default:** `changes`
+- **Values:**
+  - `changes` — only when at least one update, failure, skip, error, or warning occurred (recommended)
+  - `all` — after every run where at least one container was checked, even if nothing changed
+
+**Example:**
+```ini
+[notifiers]
+sendOn = changes
+```
+
+With `sendOn = changes`, a run that checked containers but found no updates, failures, or skips will **not** send Telegram or email notifications.
+
+#### `sendOnDryRun`
+
+Send notifications for dry-run executions.
+
+- **Type:** Boolean
+- **Default:** `true`
+- **Values:** `true`, `false`
+
+**Example:**
+```ini
+[notifiers]
+sendOnDryRun = false
+```
+
+Set to `false` to suppress notifications when running `captn --dry-run`.
+
 ---
 
 ### `[notifiers.telegram]`
@@ -1679,6 +1713,12 @@ executionTimeout =
 # Possible values: true, false
 # Default: false
 enabled =
+# When to send notifications: changes (default) or all
+# Default: changes
+sendOn =
+# Send notifications for dry-run executions
+# Default: true
+sendOnDryRun =
 
 [notifiers.telegram]
 # Enable Telegram notifications

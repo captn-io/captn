@@ -495,18 +495,14 @@ class SMTPNotifier(BaseNotifier):
         # Successful updates
         if successful_updates:
             html += '<h3 style="color: #28a745; margin-bottom: 15px;">✅ Successful Updates</h3>'
-            for detail in successful_updates[:20]:  # Limit to first 20
+            for detail in successful_updates:
                 html += self._format_update_item(detail, "success")
-            if len(successful_updates) > 20:
-                html += f'<p style="text-align: center; color: #6c757d; font-style: italic;">... and {len(successful_updates) - 20} more successful updates</p>'
 
         # Failed updates
         if failed_updates:
             html += '<h3 style="color: #dc3545; margin: 30px 0 15px 0;">❌ Failed Updates</h3>'
-            for detail in failed_updates[:10]:  # Limit to first 10
+            for detail in failed_updates:
                 html += self._format_update_item(detail, "failed")
-            if len(failed_updates) > 10:
-                html += f'<p style="text-align: center; color: #6c757d; font-style: italic;">... and {len(failed_updates) - 10} more failed updates</p>'
 
         html += '</div>'
         return html
@@ -556,11 +552,8 @@ class SMTPNotifier(BaseNotifier):
             return ""
 
         error_items = ""
-        for error in errors[:10]:  # Limit to first 10 errors
+        for error in errors:
             error_items += f'<div class="error-item">• {error}</div>'
-
-        if len(errors) > 10:
-            error_items += f'<div class="error-item" style="font-style: italic; color: #6c757d;">... and {len(errors) - 10} more errors</div>'
 
         return f"""
         <div class="section">
@@ -577,11 +570,8 @@ class SMTPNotifier(BaseNotifier):
             return ""
 
         warning_items = ""
-        for warning in warnings[:5]:  # Limit to first 5 warnings
+        for warning in warnings:
             warning_items += f'<div class="warning-item">• {warning}</div>'
-
-        if len(warnings) > 5:
-            warning_items += f'<div class="warning-item" style="font-style: italic; color: #6c757d;">... and {len(warnings) - 5} more warnings</div>'
 
         return f"""
         <div class="section">

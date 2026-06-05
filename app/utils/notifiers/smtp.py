@@ -325,7 +325,7 @@ class SMTPNotifier(BaseNotifier):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>captn v{__version__} Update Report - {hostname}</title>
+    <title>captn Update Report - {hostname}</title>
     <style>
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;

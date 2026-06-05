@@ -67,7 +67,7 @@ Key capabilities that make captn powerful:
 6. **Verification**: Monitors container stability for configured duration
 7. **Post-Script Execution**: Runs container-specific post-update scripts
 8. **Cleanup**: Removes old images and backup containers if configured
-9. **Notification**: Sends update report via configured channels
+9. **Notification**: Sends update report via configured channels (see [Update Report Reference](03-Configuration.md#update-report-reference) for field meanings)
 
 ### Safety Mechanisms
 

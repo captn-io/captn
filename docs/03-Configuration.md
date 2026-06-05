@@ -20,6 +20,7 @@ This document provides a comprehensive reference for all captn configuration opt
   - [registryAuth](#registryauth)
   - [envFiltering](#envfiltering)
   - [notifiers](#notifiers)
+    - [Update Report Reference](#update-report-reference)
   - [notifiers.telegram](#notifierstelegram)
   - [notifiers.email](#notifiersemail)
   - [assignments](#assignments)
@@ -943,7 +944,19 @@ sendOnDryRun = false
 
 Set to `false` to suppress notifications when running `captn --dry-run`.
 
----
+#### Update Report Reference
+
+After each update run, captn can send a report via Telegram and/or email. Both channels use the same underlying statistics. This section explains what each part of the report means.
+
+**Summary**
+
+| Counter      | Counts       | Meaning                                                                                              |
+| ------------ | ------------ | ---------------------------------------------------------------------------------------------------- |
+| **Checked**  | Containers   | Passed rule pre-check and were inspected (metadata and remote tags fetched)                          |
+| **Updated**  | Update steps | Successful updates applied or simulated; progressive upgrades produce multiple entries per container |
+| **Failed**   | Errors       | Errors recorded during the run (inspect, script, or recreation failures)                             |
+| **Skipped**  | Containers   | If a containers assigned rule allows no updates, or registry returned no tags                        |
+| **Duration** | Run          | Total elapsed time of the update run                                                                 |
 
 ### `[notifiers.telegram]`
 

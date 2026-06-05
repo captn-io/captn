@@ -10,6 +10,83 @@ from typing import List, Dict, Any
 from datetime import datetime
 from app import __version__
 
+CAPTN_PRIMARY = "#0066cc"
+CAPTN_ACCENT = "#0db7ed"
+
+_MAIL_ICONS = {
+    "summary": (
+        '<rect x="2" y="9" width="3" height="5" rx="0.5" fill="currentColor"/>'
+        '<rect x="6.5" y="5" width="3" height="9" rx="0.5" fill="currentColor"/>'
+        '<rect x="11" y="2" width="3" height="12" rx="0.5" fill="currentColor"/>'
+    ),
+    "package": (
+        '<path d="M2 5l6-3 6 3v6l-6 3-6-3V5z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>'
+        '<path d="M8 8v6M2 5l6 3 6-3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>'
+    ),
+    "check-circle": (
+        '<circle cx="8" cy="8" r="6.25" stroke="currentColor" stroke-width="1.5" fill="none"/>'
+        '<path d="M5.5 8l1.75 1.75L10.5 6.25" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+    ),
+    "x-circle": (
+        '<circle cx="8" cy="8" r="6.25" stroke="currentColor" stroke-width="1.5" fill="none"/>'
+        '<path d="M6 6l4 4M10 6l-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'
+    ),
+    "skip": (
+        '<path d="M3 4h7a3 3 0 0 1 0 6H6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+        '<path d="M6 7L3 4l3-3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+        '<path d="M11 10h2v4h-2" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>'
+    ),
+    "alert": (
+        '<path d="M8 2.5L14 13.5H2L8 2.5z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>'
+        '<path d="M8 6.5v3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'
+        '<circle cx="8" cy="11.75" r="0.75" fill="currentColor"/>'
+    ),
+    "info": (
+        '<circle cx="8" cy="8" r="6.25" stroke="currentColor" stroke-width="1.5" fill="none"/>'
+        '<path d="M8 7v4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'
+        '<circle cx="8" cy="5.25" r="0.75" fill="currentColor"/>'
+    ),
+    "clock": (
+        '<circle cx="8" cy="8" r="6.25" stroke="currentColor" stroke-width="1.5" fill="none"/>'
+        '<path d="M8 4.5V8l2.5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+    ),
+    "test": (
+        '<path d="M5.5 3.5h5l1 3H4.5l1-3z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>'
+        '<path d="M4.5 6.5h7v5a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5v-5z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>'
+        '<path d="M6.5 9.5h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'
+    ),
+}
+
+_STATUS_ICON_KEY = {
+    "Issues Detected": "alert",
+    "Updates Successful": "check-circle",
+    "Containers Skipped": "skip",
+    "No Containers Checked": "info",
+}
+
+
+def _mail_icon(name: str, size: int = 16) -> str:
+    """Render a monotone inline SVG icon for HTML email."""
+    paths = _MAIL_ICONS.get(name)
+    if not paths:
+        return ""
+    return (
+        f'<span class="mail-icon" style="display:inline-block;vertical-align:-2px;margin-right:6px;line-height:0;">'
+        f'<svg width="{size}" height="{size}" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+        f"{paths}</svg></span>"
+    )
+
+
+def _section_heading(level: int, icon: str, title: str, color: str = None, extra_style: str = None) -> str:
+    tag = f"h{level}"
+    styles = []
+    if color:
+        styles.append(f"color: {color}")
+    if extra_style:
+        styles.append(extra_style)
+    style_attr = f' style="{"; ".join(styles)}"' if styles else ""
+    return f"<{tag}{style_attr}>{_mail_icon(icon)}{title}</{tag}>"
+
 
 class SMTPNotifier(BaseNotifier):
     """
@@ -235,10 +312,11 @@ class SMTPNotifier(BaseNotifier):
             overflow: hidden;
         }}
         .header {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #ffffff;
+            color: #212529;
             padding: 30px;
             text-align: center;
+            border-bottom: 1px solid #dee2e6;
         }}
         .logo {{
             width: 48px;
@@ -249,11 +327,17 @@ class SMTPNotifier(BaseNotifier):
             margin: 0;
             font-size: 28px;
             font-weight: 600;
+            color: #212529;
         }}
         .header .subtitle {{
             margin: 5px 0 0 0;
             font-size: 16px;
-            opacity: 0.9;
+            color: #495057;
+        }}
+        .header .meta {{
+            margin: 10px 0 0 0;
+            font-size: 14px;
+            color: #6c757d;
         }}
         .status-banner {{
             background: {status_color};
@@ -277,12 +361,12 @@ class SMTPNotifier(BaseNotifier):
             border-radius: 8px;
             padding: 20px;
             text-align: center;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid {CAPTN_PRIMARY};
         }}
         .stat-number {{
             font-size: 32px;
             font-weight: 700;
-            color: #667eea;
+            color: {CAPTN_PRIMARY};
             margin: 0;
         }}
         .stat-label {{
@@ -301,6 +385,24 @@ class SMTPNotifier(BaseNotifier):
             padding-bottom: 10px;
             margin-bottom: 20px;
             font-size: 20px;
+        }}
+        .section h3 {{
+            color: #495057;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }}
+        .mail-icon {{
+            color: inherit;
+        }}
+        .list-marker {{
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: currentColor;
+            border-radius: 1px;
+            margin-right: 10px;
+            vertical-align: middle;
+            opacity: 0.55;
         }}
         .update-item {{
             background: #f8f9fa;
@@ -339,7 +441,7 @@ class SMTPNotifier(BaseNotifier):
             color: #6c757d;
         }}
         .update-type {{
-            background: #667eea;
+            background: {CAPTN_PRIMARY};
             color: white;
             padding: 2px 8px;
             border-radius: 12px;
@@ -350,7 +452,7 @@ class SMTPNotifier(BaseNotifier):
         .update-type.minor {{ background: #fd7e14; }}
         .update-type.patch {{ background: #28a745; }}
         .update-type.build {{ background: #17a2b8; }}
-        .update-type.digest {{ background: #6f42c1; }}
+        .update-type.digest {{ background: {CAPTN_ACCENT}; }}
         .error-list, .warning-list {{
             background: #fff5f5;
             border: 1px solid #f5c6cb;
@@ -378,13 +480,13 @@ class SMTPNotifier(BaseNotifier):
             border-top: 1px solid #e9ecef;
         }}
         .dry-run-notice {{
-            background: #e3f2fd;
-            border: 1px solid #bbdefb;
+            background: #e6f4fc;
+            border: 1px solid #99d6f5;
             border-radius: 6px;
             padding: 15px;
             margin: 20px 0;
             text-align: center;
-            color: #1976d2;
+            color: {CAPTN_PRIMARY};
         }}
         .no-updates {{
             text-align: center;
@@ -409,7 +511,7 @@ class SMTPNotifier(BaseNotifier):
             <img src="cid:logo" alt="captn Logo" class="logo" onerror="this.style.display='none'">
             <h1>captn</h1>
             <p class="subtitle">Container Update Report</p>
-            <p style="margin: 10px 0 0 0; opacity: 0.8;">{hostname} • {timestamp_str}</p>
+            <p class="meta">{hostname} • {timestamp_str}</p>
         </div>
 
         {self._generate_status_banner(status_icon, status_text, status_color)}
@@ -418,7 +520,7 @@ class SMTPNotifier(BaseNotifier):
             {self._generate_dry_run_notice(dry_run)}
 
             <div class="section">
-                <h2>📊 Summary</h2>
+                <h2>{_mail_icon("summary")}Summary</h2>
                 <div class="summary">
                     <div class="stat-card">
                         <div class="stat-number">{containers_processed}</div>
@@ -461,20 +563,22 @@ class SMTPNotifier(BaseNotifier):
 
     def _generate_status_banner(self, status_icon: str, status_text: str, status_color: str) -> str:
         """Generate status banner HTML, or empty string when omitted."""
+        del status_icon  # email uses monotone SVG icons, not shared emoji labels
         if not status_text:
             return ""
+        icon_key = _STATUS_ICON_KEY.get(status_text, "info")
         return f"""
         <div class="status-banner">
-            {status_icon} {status_text}
+            {_mail_icon(icon_key, size=18)}{status_text}
         </div>
         """
 
     def _generate_dry_run_notice(self, dry_run: bool) -> str:
         """Generate dry run notice if applicable."""
         if dry_run:
-            return """
+            return f"""
             <div class="dry-run-notice">
-                <strong>🩺 DRY RUN MODE</strong><br>
+                <strong>{_mail_icon("test")}DRY RUN MODE</strong><br>
                 This was a test run - no actual changes were made to containers.
             </div>
             """
@@ -483,26 +587,26 @@ class SMTPNotifier(BaseNotifier):
     def _generate_updates_section(self, successful_updates: List[Dict], failed_updates: List[Dict]) -> str:
         """Generate the updates section with successful and failed updates."""
         if not successful_updates and not failed_updates:
-            return """
+            return f"""
             <div class="section">
-                <h2>📦 Container Updates</h2>
+                <h2>{_mail_icon("package")}Container Updates</h2>
                 <div class="no-updates">
                     No container updates were performed.
                 </div>
             </div>
             """
 
-        html = '<div class="section"><h2>📦 Container Updates</h2>'
+        html = f'<div class="section"><h2>{_mail_icon("package")}Container Updates</h2>'
 
         # Successful updates
         if successful_updates:
-            html += '<h3 style="color: #28a745; margin-bottom: 15px;">✅ Successful Updates</h3>'
+            html += _section_heading(3, "check-circle", "Successful Updates", "#28a745")
             for detail in successful_updates:
                 html += self._format_update_item(detail, "success")
 
         # Failed updates
         if failed_updates:
-            html += '<h3 style="color: #dc3545; margin: 30px 0 15px 0;">❌ Failed Updates</h3>'
+            html += _section_heading(3, "x-circle", "Failed Updates", "#dc3545", "margin: 30px 0 15px 0")
             for detail in failed_updates:
                 html += self._format_update_item(detail, "failed")
 
@@ -527,7 +631,7 @@ class SMTPNotifier(BaseNotifier):
 
         return f"""
         <div class="section">
-            <h2>⏭️ Skipped Containers</h2>
+            <h2>{_mail_icon("skip")}Skipped Containers</h2>
             {items}
         </div>
         """
@@ -551,22 +655,13 @@ class SMTPNotifier(BaseNotifier):
         else:
             duration_str = "N/A"
 
-        # Get update type emoji and class
-        type_emoji = {
-            "major": "🚀",
-            "minor": "✨",
-            "patch": "🐞",
-            "build": "🏗️",
-            "digest": "📦"
-        }.get(update_type, "⚪")
-
         return f"""
         <div class="update-item {'failed' if status == 'failed' else ''}">
             <div class="container-name">{container_name}</div>
             <div class="version-info">{old_version} → {new_version}</div>
             <div class="update-meta">
-                <span class="update-type {update_type}">{type_emoji} {update_type}</span>
-                <span>⏱️ {duration_str}</span>
+                <span class="update-type {update_type}">{update_type}</span>
+                <span>{_mail_icon("clock", size=14)}{duration_str}</span>
             </div>
         </div>
         """
@@ -578,11 +673,11 @@ class SMTPNotifier(BaseNotifier):
 
         error_items = ""
         for error in errors:
-            error_items += f'<div class="error-item">• {error}</div>'
+            error_items += f'<div class="error-item"><span class="list-marker"></span>{error}</div>'
 
         return f"""
         <div class="section">
-            <h2>❌ Errors</h2>
+            <h2>{_mail_icon("x-circle")}Errors</h2>
             <div class="error-list">
                 {error_items}
             </div>
@@ -596,11 +691,11 @@ class SMTPNotifier(BaseNotifier):
 
         warning_items = ""
         for warning in warnings:
-            warning_items += f'<div class="warning-item">• {warning}</div>'
+            warning_items += f'<div class="warning-item"><span class="list-marker"></span>{warning}</div>'
 
         return f"""
         <div class="section">
-            <h2>⚠️ Warnings</h2>
+            <h2>{_mail_icon("alert")}Warnings</h2>
             <div class="warning-list">
                 {warning_items}
             </div>

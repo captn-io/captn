@@ -12,6 +12,7 @@ from app import __version__
 
 CAPTN_PRIMARY = "#0066cc"
 CAPTN_ACCENT = "#0db7ed"
+CAPTN_HEADER_BG = "#f0f8fc"
 
 _MAIL_ICONS = {
     "summary": (
@@ -32,9 +33,11 @@ _MAIL_ICONS = {
         '<path d="M6 6l4 4M10 6l-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'
     ),
     "skip": (
+        '<g transform="matrix(-1 0 0 -1 16 16)">'
         '<path d="M3 4h7a3 3 0 0 1 0 6H6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
         '<path d="M6 7L3 4l3-3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
         '<path d="M11 10h2v4h-2" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>'
+        '</g>'
     ),
     "alert": (
         '<path d="M8 2.5L14 13.5H2L8 2.5z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>'
@@ -312,11 +315,11 @@ class SMTPNotifier(BaseNotifier):
             overflow: hidden;
         }}
         .header {{
-            background: #ffffff;
+            background: {CAPTN_HEADER_BG};
             color: #212529;
             padding: 30px;
             text-align: center;
-            border-bottom: 1px solid #dee2e6;
+            border-bottom: 1px solid #c5e0f5;
         }}
         .logo {{
             width: 48px;

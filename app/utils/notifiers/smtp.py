@@ -407,7 +407,7 @@ class SMTPNotifier(BaseNotifier):
     <div class="container">
         <div class="header">
             <img src="cid:logo" alt="captn Logo" class="logo" onerror="this.style.display='none'">
-            <h1>captn v{__version__}</h1>
+            <h1>captn</h1>
             <p class="subtitle">Container Update Report</p>
             <p style="margin: 10px 0 0 0; opacity: 0.8;">{hostname} • {timestamp_str}</p>
         </div>

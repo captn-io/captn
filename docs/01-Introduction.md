@@ -45,7 +45,7 @@ For a complete feature overview, see the [README](https://github.com/captn-io/ca
 
 Key capabilities that make captn powerful:
 - **Rule-Driven Updates**: Granular policies with conditional requirements and lag policies
-- **Multi-Registry Support**: Docker Hub, GHCR, and private registries
+- **Multi-Registry Support**: Docker Hub, GHCR, and OCI v2 compatible private registries (GitLab, Harbor, etc.)
 - **Progressive Upgrades**: Sequential version updates with verification at each step
 - **Safety Mechanisms**: Dry-run mode, automatic rollback, and verification periods
 - **Notifications**: Real-time updates via Telegram and detailed email reports

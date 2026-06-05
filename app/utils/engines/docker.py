@@ -384,10 +384,10 @@ def get_local_image_metadata(image, container_inspect_data):
         imageUrl = f"{apiUrl}/repositories/{name}"
         imageTagsUrl = f"{apiUrl}/repositories/{name}/tags"
     else:
-        # e.g. 'ghcr.io/immich-app/immich-server'
+        # e.g. 'ghcr.io/immich-app/immich-server' or 'custom-registry.my-domain.com/org/app'
         registry = parts[0]
         name = "/".join(parts[1:])
-        apiUrl = config.ghcr.apiUrl
+        apiUrl = f"https://{registry}/v2"
         imageUrl = f"{apiUrl}/{name}"
         imageTagsUrl = f"{apiUrl}/{name}/tags/list"
 

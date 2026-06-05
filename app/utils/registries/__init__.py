@@ -3,7 +3,7 @@
 
 import logging
 
-from . import docker, ghcr
+from . import docker, ghcr, oci
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +29,11 @@ def get_image_tags(imageName, imageUrl, registry, imageTagsUrl, imageTag):
     """
     logger.debug(f"Retrieving available image tags from '{registry}'", extra={"indent": 2})
     if registry in ["docker.io"]:
-        tags = docker.get_image_tags(imageTagsUrl, imageTag)  # filtered by similar tags, sorted and truncated so only the current tag and newer are listed
+        tags = docker.get_image_tags(imageTagsUrl, imageTag)
     elif registry in ["ghcr.io"]:
-        tags = ghcr.get_image_tags(imageName, imageUrl, imageTagsUrl, imageTag)  # filtered by similar tags, sorted and truncated so only the current tag and newer are listed
+        tags = ghcr.get_image_tags(imageName, imageUrl, imageTagsUrl, imageTag)
+    else:
+        tags = oci.get_image_tags( imageName, imageUrl, imageTagsUrl, imageTag, registry_api_url=f"https://{registry}/v2")
 
     logger.debug(
         f"A total of {len(tags)} image tags relevant for update processing have been retrieved from '{registry}'",

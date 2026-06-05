@@ -22,6 +22,7 @@ class NotificationManager:
             "containers_failed": 0,
             "containers_skipped": 0,
             "update_details": [],
+            "skip_details": [],
             "errors": [],
             "warnings": [],
             "start_time": None,
@@ -97,8 +98,12 @@ class NotificationManager:
         """Increment the processed containers counter."""
         self.update_stats["containers_processed"] += 1
 
-    def increment_skipped(self):
-        """Increment the skipped containers counter."""
+    def add_skip_detail(self, container_name: str, reason: str):
+        """Record a skipped container and the reason it was not processed."""
+        self.update_stats["skip_details"].append({
+            "container_name": container_name,
+            "reason": reason,
+        })
         self.update_stats["containers_skipped"] += 1
 
     def set_start_time(self):
@@ -167,6 +172,7 @@ class NotificationManager:
             "containers_failed": 0,
             "containers_skipped": 0,
             "update_details": [],
+            "skip_details": [],
             "errors": [],
             "warnings": [],
             "start_time": None,

@@ -315,7 +315,10 @@ def main():
                 f"Skipping container '{container.name}' - Assigned rule '{effective_rule}' does not allow any updates",
                 extra={"indent": 2},
             )
-            notification_manager.increment_skipped()
+            notification_manager.add_skip_detail(
+                container.name,
+                f"Assigned rule '{effective_rule}' does not allow any updates",
+            )
             continue
 
         notification_manager.increment_processed()
@@ -565,7 +568,10 @@ def main():
 
         elif not remote_image_tags:
             logging.info(f"No relevant image updates available for container '{container.name}'", extra={"indent": 2})
-            notification_manager.increment_skipped()
+            notification_manager.add_skip_detail(
+                container.name,
+                "No relevant image tags available from registry",
+            )
         else:
             error_msg = (
                 f"Missing required data for container '{container.name if container else 'UNKNOWN'}': "

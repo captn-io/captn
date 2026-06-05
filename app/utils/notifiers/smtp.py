@@ -179,6 +179,7 @@ class SMTPNotifier(BaseNotifier):
         containers_failed = update_data.get("containers_failed", 0)
         containers_skipped = update_data.get("containers_skipped", 0)
         update_details = update_data.get("update_details", [])
+        skip_details = update_data.get("skip_details", [])
         errors = update_data.get("errors", [])
         warnings = update_data.get("warnings", [])
         start_time = update_data.get("start_time")
@@ -440,6 +441,7 @@ class SMTPNotifier(BaseNotifier):
             </div>
 
             {self._generate_updates_section(successful_updates, failed_updates)}
+            {self._generate_skipped_section(skip_details)}
             {self._generate_errors_section(errors)}
             {self._generate_warnings_section(warnings)}
         </div>
@@ -506,6 +508,29 @@ class SMTPNotifier(BaseNotifier):
 
         html += '</div>'
         return html
+
+    def _generate_skipped_section(self, skip_details: List[Dict]) -> str:
+        """Generate skipped containers section if there are any."""
+        if not skip_details:
+            return ""
+
+        items = ""
+        for detail in skip_details:
+            container_name = detail.get("container_name", "Unknown")
+            reason = detail.get("reason", "Unknown")
+            items += f"""
+        <div class="update-item skipped">
+            <div class="container-name">{container_name}</div>
+            <div class="version-info">{reason}</div>
+        </div>
+        """
+
+        return f"""
+        <div class="section">
+            <h2>⏭️ Skipped Containers</h2>
+            {items}
+        </div>
+        """
 
     def _format_update_item(self, detail: Dict, status: str) -> str:
         """Format a single update item."""

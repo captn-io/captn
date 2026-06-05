@@ -303,6 +303,7 @@ class TelegramNotifier(BaseNotifier):
         containers_failed = update_data.get("containers_failed", 0)
         containers_skipped = update_data.get("containers_skipped", 0)
         update_details = update_data.get("update_details", [])
+        skip_details = update_data.get("skip_details", [])
         errors = update_data.get("errors", [])
         warnings = update_data.get("warnings", [])
         start_time = update_data.get("start_time")
@@ -419,6 +420,17 @@ class TelegramNotifier(BaseNotifier):
 
             if len(failed_updates) > 10:
                 lines.append(f"... and {len(failed_updates) - 10} more")
+            lines.append("")
+
+        # Skipped containers
+        if skip_details:
+            lines.append("<b>⏭️ Skipped Containers:</b>")
+            for detail in skip_details:
+                container_name = detail.get("container_name", "Unknown")
+                reason = detail.get("reason", "Unknown")
+                lines.append(f"")
+                lines.append(f"<b>{container_name}</b>")
+                lines.append(f"<code>{reason}</code>")
             lines.append("")
 
         # Errors

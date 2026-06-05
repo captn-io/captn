@@ -2094,8 +2094,8 @@ timeout =
 rollbackOnFailure =
 
 [docker]
-# Docker Hub API URL only
-# Usually doesn't need to be changed
+# Docker Hub API URL for fetching image metadata
+# Usually doesn't need to be changed unless using a custom registry
 # Possible values: Valid HTTP/HTTPS URL
 #   Examples: "https://registry.hub.docker.com/v2", "https://custom.registry.com/v2"
 # Default: "https://registry.hub.docker.com/v2"

@@ -12,7 +12,28 @@ from app import __version__
 
 CAPTN_PRIMARY = "#0066cc"
 CAPTN_ACCENT = "#0db7ed"
-CAPTN_HEADER_BG = "#f0f8fc"
+
+
+def _muted_status_background(hex_color: str, mix: float = 0.1) -> str:
+    """Blend a status color with white for subtle header backgrounds."""
+    color = hex_color.lstrip("#")
+    red = int(color[0:2], 16)
+    green = int(color[2:4], 16)
+    blue = int(color[4:6], 16)
+    red = int(red * mix + 255 * (1 - mix))
+    green = int(green * mix + 255 * (1 - mix))
+    blue = int(blue * mix + 255 * (1 - mix))
+    return f"#{red:02x}{green:02x}{blue:02x}"
+
+
+def _header_edge_gradients(light: str, dark: str) -> str:
+    """Layer short edge vignettes from all sides; bottom is slightly stronger."""
+    return (
+        f"linear-gradient(to top, {dark} 0%, transparent 22%), "
+        f"linear-gradient(to bottom, {dark} 0%, transparent 18%), "
+        f"linear-gradient(to right, {dark} 0%, transparent 14%), "
+        f"linear-gradient(to left, {dark} 0%, transparent 14%)"
+    )
 
 _MAIL_ICONS = {
     "summary": (
@@ -290,6 +311,13 @@ class SMTPNotifier(BaseNotifier):
         else:
             status_text = status_icon = status_color = None
 
+        header_status_color = status_color or CAPTN_PRIMARY
+        header_bg_light = _muted_status_background(header_status_color, mix=0.08)
+        header_bg_dark = _muted_status_background(header_status_color, mix=0.2)
+        header_border = _muted_status_background(header_status_color, mix=0.22)
+        header_background_image = _header_edge_gradients(header_bg_light, header_bg_dark)
+        header_border_css = "" if status_text else f"border-bottom: 1px solid {header_border};"
+
         # Build HTML content
         html = f"""
 <!DOCTYPE html>
@@ -315,11 +343,12 @@ class SMTPNotifier(BaseNotifier):
             overflow: hidden;
         }}
         .header {{
-            background: {CAPTN_HEADER_BG};
+            background-color: {header_bg_light};
+            background-image: {header_background_image};
             color: #212529;
             padding: 30px;
             text-align: center;
-            border-bottom: 1px solid #c5e0f5;
+            {header_border_css}
         }}
         .logo {{
             width: 48px;

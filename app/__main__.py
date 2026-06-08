@@ -345,7 +345,14 @@ def main():
         except Exception as e:
             error_msg = f"Failed to inspect container '{container.name}': {e}"
             logging.error(error_msg, extra={"indent": 2})
-            notification_manager.add_error(error_msg)
+            notification_manager.add_update_detail(
+                container_name=container.name,
+                old_version="Unknown",
+                new_version="Unknown",
+                update_type="unknown",
+                status="failed",
+                error_message=error_msg,
+            )
             continue
 
         # Debug logging with conditional formatting
@@ -431,7 +438,6 @@ def main():
                         if not pre_success and not should_continue_on_pre_failure():
                             error_msg = f"Pre-script failed for container '{container.name}'"
                             logging.error(error_msg, extra={"indent": 4})
-                            notification_manager.add_error(error_msg)
                             new_tag = remote_image_tag.get("name") if remote_image_tag else "Unknown"
                             update_duration = time.time() - update_start_time
                             notification_manager.add_update_detail(
@@ -440,7 +446,8 @@ def main():
                                 new_version=new_tag,
                                 update_type=update_type,
                                 duration=update_duration,
-                                status="failed"
+                                status="failed",
+                                error_message=error_msg,
                             )
                             continue
 
@@ -481,7 +488,7 @@ def main():
                         else:
                             new_tag = remote_image_tag.get("name") if remote_image_tag else "Unknown"
 
-                            new_container = engines.recreate_container(client, container, new_image_reference, container_inspect_data, dry_run, image_inspect_data, notification_manager, update_type=update_type, old_version=current_tag, new_version=new_tag)
+                            new_container, recreate_error = engines.recreate_container(client, container, new_image_reference, container_inspect_data, dry_run, image_inspect_data, notification_manager, update_type=update_type, old_version=current_tag, new_version=new_tag)
                             if new_container:
                                 try:
                                     # Refresh container and used image information
@@ -513,9 +520,6 @@ def main():
                                 except Exception as e:
                                     error_msg = f"Update failed for container '{new_container.name}': {e}"
                                     logging.error(error_msg, extra={"indent": 4})
-                                    notification_manager.add_error(error_msg)
-
-                                    # Add failed update to notification statistics
                                     update_duration = time.time() - update_start_time
                                     notification_manager.add_update_detail(
                                         container_name=new_container.name,
@@ -523,14 +527,12 @@ def main():
                                         new_version=new_tag,
                                         update_type=update_type,
                                         duration=update_duration,
-                                        status="failed"
+                                        status="failed",
+                                        error_message=error_msg,
                                     )
                             else:
-                                error_msg = f"Failed to recreate container '{container.name}'"
+                                error_msg = recreate_error or f"Failed to recreate container '{container.name}'"
                                 logging.error(error_msg, extra={"indent": 4})
-                                notification_manager.add_error(error_msg)
-
-                                # Add failed update to notification statistics
                                 update_duration = time.time() - update_start_time
                                 notification_manager.add_update_detail(
                                     container_name=container.name,
@@ -538,7 +540,8 @@ def main():
                                     new_version=new_tag,
                                     update_type=update_type,
                                     duration=update_duration,
-                                    status="failed"
+                                    status="failed",
+                                    error_message=error_msg,
                                 )
 
                         # 4. Wait for some seconds
@@ -583,7 +586,14 @@ def main():
                 f"{'remote_image_tags' if not remote_image_tags else ''}"
             )
             logging.error(error_msg, extra={"indent": 2})
-            notification_manager.add_error(error_msg)
+            notification_manager.add_update_detail(
+                container_name=container.name,
+                old_version=image_metadata.get("tag") if image_metadata else "Unknown",
+                new_version="Unknown",
+                update_type="unknown",
+                status="failed",
+                error_message=error_msg,
+            )
 
     # Handle self-updates at the very end to avoid interrupting other container updates
     if hasattr(main, "self_update_info") and main.self_update_info:

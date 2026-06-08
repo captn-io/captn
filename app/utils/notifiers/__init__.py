@@ -23,7 +23,6 @@ class NotificationManager:
             "containers_skipped": 0,
             "update_details": [],
             "skip_details": [],
-            "errors": [],
             "warnings": [],
             "start_time": None,
             "end_time": None
@@ -70,25 +69,34 @@ class NotificationManager:
             elif email_config.enabled:
                 logging.warning("Email notifications enabled but smtpServer, fromAddr, or toAddr not configured")
 
-    def add_update_detail(self, container_name: str, old_version: str, new_version: str, update_type: str, duration: float = None, status: str = "succeeded"):
+    def add_update_detail(
+        self,
+        container_name: str,
+        old_version: str,
+        new_version: str,
+        update_type: str,
+        duration: float = None,
+        status: str = "succeeded",
+        error_message: str = None,
+    ):
         """Add an update to the statistics."""
-        self.update_stats["update_details"].append({
+        detail = {
             "container_name": container_name,
             "old_version": old_version,
             "new_version": new_version,
             "update_type": update_type,
             "duration": duration,
-            "status": status
-        })
+            "status": status,
+        }
+        if error_message:
+            detail["error_message"] = error_message
 
-        # Only increment containers_updated for successful updates
+        self.update_stats["update_details"].append(detail)
+
         if status == "succeeded":
             self.update_stats["containers_updated"] += 1
-
-    def add_error(self, error_message: str):
-        """Add an error to the statistics."""
-        self.update_stats["errors"].append(error_message)
-        self.update_stats["containers_failed"] += 1
+        elif status == "failed":
+            self.update_stats["containers_failed"] += 1
 
     def add_warning(self, warning_message: str):
         """Add a warning to the statistics."""
@@ -173,7 +181,6 @@ class NotificationManager:
             "containers_skipped": 0,
             "update_details": [],
             "skip_details": [],
-            "errors": [],
             "warnings": [],
             "start_time": None,
             "end_time": None

@@ -289,7 +289,6 @@ class TelegramNotifier(BaseNotifier):
                 - containers_failed: int
                 - containers_skipped: int
                 - update_details: List[Dict] with container update details
-                - errors: List[str] (optional)
                 - warnings: List[str] (optional)
 
         Returns:
@@ -304,7 +303,6 @@ class TelegramNotifier(BaseNotifier):
         containers_skipped = update_data.get("containers_skipped", 0)
         update_details = update_data.get("update_details", [])
         skip_details = update_data.get("skip_details", [])
-        errors = update_data.get("errors", [])
         warnings = update_data.get("warnings", [])
         start_time = update_data.get("start_time")
         end_time = update_data.get("end_time")
@@ -399,6 +397,9 @@ class TelegramNotifier(BaseNotifier):
                 lines.append(f"<code>{old_version} → {new_version}</code>")
                 lines.append(f"<code>   {update_type_emoji(update_type)} {update_type}</code>")
                 lines.append(f"<code>   ⏱️ {duration_str}</code>")
+                error_message = detail.get("error_message")
+                if error_message:
+                    lines.append(f"<code>   ❌ {error_message}</code>")
 
             if len(failed_updates) > 10:
                 lines.append(f"... and {len(failed_updates) - 10} more")
@@ -413,15 +414,6 @@ class TelegramNotifier(BaseNotifier):
                 lines.append(f"")
                 lines.append(f"<b>{container_name}</b>")
                 lines.append(f"<code>{reason}</code>")
-            lines.append("")
-
-        # Errors
-        if errors:
-            lines.append("<b>❌ Errors:</b>")
-            for error in errors[:5]:  # Limit to first 5 errors
-                lines.append(f"• {error}")
-            if len(errors) > 5:
-                lines.append(f"   ... and {len(errors) - 5} more")
             lines.append("")
 
         # Warnings

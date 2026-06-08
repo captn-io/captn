@@ -873,7 +873,7 @@ def recreate_container(client, container, image, container_inspect_data, dry_run
         new_version (str, optional): Image tag after the update
 
     Returns:
-        Container object if successful, None otherwise
+        Tuple of (container, error_message). On success: (container, None). On failure: (None, error_message).
     """
     original_name = container.name
     backup_name = get_container_backup_name(original_name)
@@ -960,7 +960,7 @@ def recreate_container(client, container, image, container_inspect_data, dry_run
             )
 
         rollback() if not dry_run else None
-        return None
+        return None, error_msg
 
     try:
         spec = get_container_spec(client, container_inspect_data, original_name, image, image_inspect_data)
@@ -979,23 +979,15 @@ def recreate_container(client, container, image, container_inspect_data, dry_run
             error_msg = f"Post-script failed for container '{original_name}'"
             logging.error(error_msg, extra={"indent": 4})
 
-            # Add error to notification manager if available
-            if notification_manager:
-                notification_manager.add_error(error_msg)
-
             if should_rollback_on_post_failure():
                 rollback()
-                return None
+                return None, error_msg
 
-        return new_container if not dry_run else container
+        return (new_container if not dry_run else container), None
 
     except Exception as e:
         error_msg = f"Failed to recreate new container: {e}"
         logging.error(error_msg, extra={"indent": 4})
-
-        # Add error to notification manager if available
-        if notification_manager:
-            notification_manager.add_error(error_msg)
 
         # Create comparison file for debugging
         if not dry_run:
@@ -1007,7 +999,7 @@ def recreate_container(client, container, image, container_inspect_data, dry_run
             )
 
         rollback() if not dry_run else None
-        return None
+        return None, error_msg
 
 
 def is_self_container(container_name, container_id):

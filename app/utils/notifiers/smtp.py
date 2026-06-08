@@ -26,15 +26,6 @@ def _muted_status_background(hex_color: str, mix: float = 0.1) -> str:
     return f"#{red:02x}{green:02x}{blue:02x}"
 
 
-def _header_edge_gradients(light: str, dark: str) -> str:
-    """Layer short edge vignettes from all sides; bottom is slightly stronger."""
-    return (
-        f"linear-gradient(to top, {dark} 0%, transparent 22%), "
-        f"linear-gradient(to bottom, {dark} 0%, transparent 18%), "
-        f"linear-gradient(to right, {dark} 0%, transparent 14%), "
-        f"linear-gradient(to left, {dark} 0%, transparent 14%)"
-    )
-
 _MAIL_ICONS = {
     "summary": (
         '<rect x="2" y="9" width="3" height="5" rx="0.5" fill="currentColor"/>'
@@ -262,7 +253,6 @@ class SMTPNotifier(BaseNotifier):
                 - containers_failed: int
                 - containers_skipped: int
                 - update_details: List[Dict] with container update details
-                - errors: List[str] (optional)
                 - warnings: List[str] (optional)
                 - start_time: datetime (optional)
                 - end_time: datetime (optional)
@@ -279,7 +269,6 @@ class SMTPNotifier(BaseNotifier):
         containers_skipped = update_data.get("containers_skipped", 0)
         update_details = update_data.get("update_details", [])
         skip_details = update_data.get("skip_details", [])
-        errors = update_data.get("errors", [])
         warnings = update_data.get("warnings", [])
         start_time = update_data.get("start_time")
         end_time = update_data.get("end_time")
@@ -301,7 +290,6 @@ class SMTPNotifier(BaseNotifier):
             "containers_updated": containers_updated,
             "containers_failed": containers_failed,
             "containers_skipped": containers_skipped,
-            "errors": errors,
         }
         status_banner = resolve_status_banner(stats)
         if status_banner:
@@ -310,10 +298,8 @@ class SMTPNotifier(BaseNotifier):
             status_text = status_icon = status_color = None
 
         header_status_color = status_color or CAPTN_PRIMARY
-        header_bg_light = _muted_status_background(header_status_color, mix=0.08)
-        header_bg_dark = _muted_status_background(header_status_color, mix=0.2)
+        header_bg = _muted_status_background(header_status_color, mix=0.1)
         header_border = _muted_status_background(header_status_color, mix=0.22)
-        header_background_image = _header_edge_gradients(header_bg_light, header_bg_dark)
         header_border_css = "" if status_text else f"border-bottom: 1px solid {header_border};"
 
         # Build HTML content
@@ -341,8 +327,7 @@ class SMTPNotifier(BaseNotifier):
             overflow: hidden;
         }}
         .header {{
-            background-color: {header_bg_light};
-            background-image: {header_background_image};
+            background-color: {header_bg};
             color: #212529;
             padding: 30px;
             text-align: center;
@@ -451,33 +436,68 @@ class SMTPNotifier(BaseNotifier):
             margin-bottom: 5px;
         }}
         .version-info {{
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            background: #e9ecef;
+            font-size: 13px;
+            color: #495057;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
             padding: 8px 12px;
-            border-radius: 4px;
-            margin: 5px 0;
-            font-size: 14px;
+            border-radius: 6px;
+            margin: 6px 0;
+            line-height: 1.5;
         }}
         .update-meta {{
-            display: flex;
-            gap: 15px;
             margin-top: 8px;
+            border-collapse: collapse;
+        }}
+        .update-meta td {{
+            padding: 0 8px 0 0;
+            vertical-align: middle;
             font-size: 14px;
             color: #6c757d;
+            white-space: nowrap;
+        }}
+        .update-meta td:last-child {{
+            padding-right: 0;
         }}
         .update-type {{
+            display: inline-block;
             background: {CAPTN_PRIMARY};
             color: white;
-            padding: 2px 8px;
+            padding: 4px 10px;
             border-radius: 12px;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600;
+            line-height: 1.3;
         }}
         .update-type.major {{ background: #dc3545; }}
         .update-type.minor {{ background: #fd7e14; }}
         .update-type.patch {{ background: #28a745; }}
         .update-type.build {{ background: #17a2b8; }}
         .update-type.digest {{ background: {CAPTN_ACCENT}; }}
+        .update-type.update-step {{
+            background: #d6ebfa;
+            color: #0056ad;
+        }}
+        .update-type.major.update-step {{
+            background: #f8d7da;
+            color: #b02a37;
+        }}
+        .update-type.minor.update-step {{
+            background: #ffe8d4;
+            color: #c85c00;
+        }}
+        .update-type.patch.update-step {{
+            background: #d4edda;
+            color: #1e7e34;
+        }}
+        .update-type.build.update-step {{
+            background: #d1ecf1;
+            color: #117a8b;
+        }}
+        .update-type.digest.update-step {{
+            background: #d4f1fc;
+            color: #0a8fbd;
+        }}
         .error-list, .warning-list {{
             background: #fff5f5;
             border: 1px solid #f5c6cb;
@@ -522,10 +542,6 @@ class SMTPNotifier(BaseNotifier):
         @media (max-width: 600px) {{
             .summary {{
                 grid-template-columns: repeat(2, 1fr);
-            }}
-            .update-meta {{
-                flex-direction: column;
-                gap: 5px;
             }}
         }}
     </style>
@@ -577,7 +593,6 @@ class SMTPNotifier(BaseNotifier):
 
             {self._generate_updates_section(successful_updates, failed_updates)}
             {self._generate_skipped_section(skip_details)}
-            {self._generate_errors_section(errors)}
             {self._generate_warnings_section(warnings)}
         </div>
 
@@ -688,32 +703,20 @@ class SMTPNotifier(BaseNotifier):
         else:
             duration_str = "N/A"
 
+        error_message = detail.get("error_message")
+        error_html = f'<div class="version-info">{error_message}</div>' if error_message else ""
+
         return f"""
         <div class="update-item {'failed' if status == 'failed' else ''}">
             <div class="container-name">{container_name}</div>
-            <div class="version-info">{old_version} → {new_version}</div>
-            <div class="update-meta">
-                <span class="update-type {update_type}">{update_type_emoji(update_type)} {update_type}</span>
-                <span>{_mail_icon("clock", size=14)}{duration_str}</span>
-            </div>
-        </div>
-        """
-
-    def _generate_errors_section(self, errors: List[str]) -> str:
-        """Generate errors section if there are any."""
-        if not errors:
-            return ""
-
-        error_items = ""
-        for error in errors:
-            error_items += f'<div class="error-item"><span class="list-marker"></span>{error}</div>'
-
-        return f"""
-        <div class="section">
-            <h2>{_mail_icon("x-circle")}Errors</h2>
-            <div class="error-list">
-                {error_items}
-            </div>
+            {error_html}
+            <table role="presentation" class="update-meta" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                    <td><span class="update-type {update_type}">{update_type_emoji(update_type)} {update_type}</span></td>
+                    <td><span class="update-type {update_type} update-step">{old_version} → {new_version}</span></td>
+                    <td>{_mail_icon("clock", size=14)}{duration_str}</td>
+                </tr>
+            </table>
         </div>
         """
 

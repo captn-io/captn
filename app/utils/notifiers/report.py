@@ -25,7 +25,6 @@ def has_noteworthy_events(stats: Dict[str, Any]) -> bool:
         stats.get("containers_updated", 0) > 0
         or stats.get("containers_failed", 0) > 0
         or stats.get("containers_skipped", 0) > 0
-        or bool(stats.get("errors"))
         or bool(stats.get("warnings"))
     )
 
@@ -41,9 +40,7 @@ def resolve_status_banner(stats: Dict[str, Any]) -> Optional[StatusBanner]:
     updated = stats.get("containers_updated", 0)
     skipped = stats.get("containers_skipped", 0)
     processed = stats.get("containers_processed", 0)
-    errors = stats.get("errors", [])
-
-    if failed > 0 or errors:
+    if failed > 0:
         return ("Issues Detected", "⚠️", "#dc3545")
     if updated > 0:
         return ("Updates Successful", "✅", "#28a745")
@@ -78,7 +75,7 @@ def should_send_notification(
         return False
 
     if send_on == "all":
-        if stats.get("containers_processed", 0) == 0 and not stats.get("errors"):
+        if stats.get("containers_processed", 0) == 0 and stats.get("containers_failed", 0) == 0:
             return False
         return True
 

@@ -3,7 +3,7 @@ import logging
 import json
 import os
 from .base import BaseNotifier
-from .report import format_duration
+from .report import format_duration, update_type_emoji
 from typing import List, Dict, Any
 from datetime import datetime
 
@@ -352,15 +352,6 @@ class TelegramNotifier(BaseNotifier):
                 update_type = detail.get("update_type", "Unknown")
                 duration = detail.get("duration")
 
-                # Use emoji based on update type
-                type_emoji = {
-                    "major": "🚀",
-                    "minor": "✨",
-                    "patch": "🐞",
-                    "build": "🏗️",
-                    "digest": "📦"
-                }.get(update_type, "⚪")
-
                 # Add duration if available
                 if duration is not None:
                     if duration < 60:
@@ -375,7 +366,7 @@ class TelegramNotifier(BaseNotifier):
                 lines.append(f"")
                 lines.append(f"<b>{container_name}</b>")
                 lines.append(f"<code>{old_version} → {new_version}</code>")
-                lines.append(f"<code>   {type_emoji} {update_type}</code>")
+                lines.append(f"<code>   {update_type_emoji(update_type)} {update_type}</code>")
                 lines.append(f"<code>   ⏱️ {duration_str}</code>")
 
             if len(successful_updates) > 10:
@@ -392,15 +383,6 @@ class TelegramNotifier(BaseNotifier):
                 update_type = detail.get("update_type", "Unknown")
                 duration = detail.get("duration")
 
-                # Use emoji based on update type
-                type_emoji = {
-                    "major": "🚀",
-                    "minor": "✨",
-                    "patch": "🐞",
-                    "build": "🏗️",
-                    "digest": "📦"
-                }.get(update_type, "⚪")
-
                 # Add duration if available
                 if duration is not None:
                     if duration < 60:
@@ -415,7 +397,7 @@ class TelegramNotifier(BaseNotifier):
                 lines.append(f"")
                 lines.append(f"<b>{container_name}</b>")
                 lines.append(f"<code>{old_version} → {new_version}</code>")
-                lines.append(f"<code>   {type_emoji} {update_type}</code>")
+                lines.append(f"<code>   {update_type_emoji(update_type)} {update_type}</code>")
                 lines.append(f"<code>   ⏱️ {duration_str}</code>")
 
             if len(failed_updates) > 10:

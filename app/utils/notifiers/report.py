@@ -5,6 +5,19 @@ from typing import Any, Dict, List, Optional, Tuple
 
 StatusBanner = Tuple[str, str, str]  # (text, icon, hex_color)
 
+UPDATE_TYPE_EMOJI = {
+    "major": "🚀",
+    "minor": "✨",
+    "patch": "🐞",
+    "build": "🏗️",
+    "digest": "📦",
+}
+
+
+def update_type_emoji(update_type: str) -> str:
+    """Return the emoji symbol for an update type (shared by email and Telegram)."""
+    return UPDATE_TYPE_EMOJI.get(update_type, "⚪")
+
 
 def has_noteworthy_events(stats: Dict[str, Any]) -> bool:
     """Return True when the update run produced something worth notifying about."""

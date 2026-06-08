@@ -5,7 +5,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from .base import BaseNotifier
-from .report import resolve_status_banner, format_duration
+from .report import resolve_status_banner, format_duration, update_type_emoji
 from typing import List, Dict, Any
 from datetime import datetime
 from app import __version__
@@ -54,11 +54,9 @@ _MAIL_ICONS = {
         '<path d="M6 6l4 4M10 6l-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'
     ),
     "skip": (
-        '<g transform="matrix(-1 0 0 -1 16 16)">'
-        '<path d="M3 4h7a3 3 0 0 1 0 6H6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
-        '<path d="M6 7L3 4l3-3" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
-        '<path d="M11 10h2v4h-2" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>'
-        '</g>'
+        '<path d="M3.25 4.5v7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'
+        '<path d="M6 4.5v7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'
+        '<path d="M9.25 5l4 3-4 3V5z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>'
     ),
     "alert": (
         '<path d="M8 2.5L14 13.5H2L8 2.5z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>'
@@ -692,7 +690,7 @@ class SMTPNotifier(BaseNotifier):
             <div class="container-name">{container_name}</div>
             <div class="version-info">{old_version} → {new_version}</div>
             <div class="update-meta">
-                <span class="update-type {update_type}">{update_type}</span>
+                <span class="update-type {update_type}">{update_type_emoji(update_type)} {update_type}</span>
                 <span>{_mail_icon("clock", size=14)}{duration_str}</span>
             </div>
         </div>

@@ -348,11 +348,6 @@ class SMTPNotifier(BaseNotifier):
             text-align: center;
             {header_border_css}
         }}
-        .logo {{
-            width: 48px;
-            height: 48px;
-            margin-bottom: 15px;
-        }}
         .header h1 {{
             margin: 0;
             font-size: 28px;
@@ -538,7 +533,15 @@ class SMTPNotifier(BaseNotifier):
 <body>
     <div class="container">
         <div class="header">
-            <img src="cid:logo" alt="captn Logo" class="logo" onerror="this.style.display='none'">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+                <tr>
+                    <td align="center" style="padding:0 0 15px 0;">
+                        <img src="cid:logo" width="48" height="48" alt="captn Logo"
+                             style="display:block;width:48px;height:48px;max-width:48px;margin:0 auto;border:0;outline:none;-ms-interpolation-mode:bicubic;"
+                             onerror="this.style.display='none'">
+                    </td>
+                </tr>
+            </table>
             <h1>captn</h1>
             <p class="subtitle">Container Update Report</p>
             <p class="meta">{hostname} • {timestamp_str}</p>

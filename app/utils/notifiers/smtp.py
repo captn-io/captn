@@ -498,6 +498,16 @@ class SMTPNotifier(BaseNotifier):
             background: #d4f1fc;
             color: #0a8fbd;
         }}
+        .update-duration {{
+            display: inline-block;
+            background: #e9ecef;
+            color: #6c757d;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1.3;
+        }}
         .error-list, .warning-list {{
             background: #fff5f5;
             border: 1px solid #f5c6cb;
@@ -714,7 +724,7 @@ class SMTPNotifier(BaseNotifier):
                 <tr>
                     <td><span class="update-type {update_type}">{update_type_emoji(update_type)} {update_type}</span></td>
                     <td><span class="update-type {update_type} update-step">{old_version} → {new_version}</span></td>
-                    <td>{_mail_icon("clock", size=14)}{duration_str}</td>
+                    <td><span class="update-duration">{_mail_icon("clock", size=14)}{duration_str}</span></td>
                 </tr>
             </table>
         </div>

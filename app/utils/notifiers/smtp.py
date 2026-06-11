@@ -420,6 +420,8 @@ class SMTPNotifier(BaseNotifier):
             padding: 15px;
             margin-bottom: 10px;
             border-left: 4px solid #28a745;
+            max-width: 100%;
+            overflow-wrap: anywhere;
         }}
         .update-item.failed {{
             border-left-color: #dc3545;
@@ -447,17 +449,7 @@ class SMTPNotifier(BaseNotifier):
         }}
         .update-meta {{
             margin-top: 8px;
-            border-collapse: collapse;
-        }}
-        .update-meta td {{
-            padding: 0 8px 0 0;
-            vertical-align: middle;
-            font-size: 14px;
-            color: #6c757d;
-            white-space: nowrap;
-        }}
-        .update-meta td:last-child {{
-            padding-right: 0;
+            line-height: 1.6;
         }}
         .update-type {{
             display: inline-block;
@@ -467,7 +459,14 @@ class SMTPNotifier(BaseNotifier):
             border-radius: 12px;
             font-size: 12px;
             font-weight: 600;
-            line-height: 1.3;
+            line-height: 1.4;
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            max-width: 100%;
+            margin: 0 8px 6px 0;
+            vertical-align: top;
+            box-sizing: border-box;
         }}
         .update-type.major {{ background: #dc3545; }}
         .update-type.minor {{ background: #fd7e14; }}
@@ -506,7 +505,14 @@ class SMTPNotifier(BaseNotifier):
             border-radius: 12px;
             font-size: 12px;
             font-weight: 500;
-            line-height: 1.3;
+            line-height: 1.4;
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            max-width: 100%;
+            margin: 0 8px 6px 0;
+            vertical-align: top;
+            box-sizing: border-box;
         }}
         .error-list, .warning-list {{
             background: #fff5f5;
@@ -720,13 +726,11 @@ class SMTPNotifier(BaseNotifier):
         <div class="update-item {'failed' if status == 'failed' else ''}">
             <div class="container-name">{container_name}</div>
             {error_html}
-            <table role="presentation" class="update-meta" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                    <td><span class="update-type {update_type}">{update_type_emoji(update_type)} {update_type}</span></td>
-                    <td><span class="update-type {update_type} update-step">{old_version} → {new_version}</span></td>
-                    <td><span class="update-duration">{_mail_icon("clock", size=14)}{duration_str}</span></td>
-                </tr>
-            </table>
+            <div class="update-meta">
+                <span class="update-type {update_type}">{update_type_emoji(update_type)} {update_type}</span>
+                <span class="update-type {update_type} update-step">{old_version} → {new_version}</span>
+                <span class="update-duration">{_mail_icon("clock", size=14)}{duration_str}</span>
+            </div>
         </div>
         """
 

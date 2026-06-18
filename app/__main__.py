@@ -17,6 +17,7 @@ from .utils.common import setup_logging
 from .utils.config import config, create_example_config
 from .utils.scripts import execute_pre_script, execute_post_script, should_continue_on_pre_failure, should_rollback_on_post_failure
 from .utils.notifiers import notification_manager
+from .utils.interrupt import install_interrupt_handlers
 
 
 def get_container_names():
@@ -269,6 +270,7 @@ def main():
         clear_logs()
 
     setup_logging(log_level=args.log_level, dry_run=dry_run)
+    install_interrupt_handlers()
 
     client = engines.get_client()
     if not client:
@@ -313,7 +315,10 @@ def main():
                 f"Skipping container '{container.name}' - Assigned rule '{effective_rule}' does not allow any updates",
                 extra={"indent": 2},
             )
-            notification_manager.increment_skipped()
+            notification_manager.add_skip_detail(
+                container.name,
+                f"Assigned rule '{effective_rule}' does not allow any updates",
+            )
             continue
 
         notification_manager.increment_processed()
@@ -340,7 +345,14 @@ def main():
         except Exception as e:
             error_msg = f"Failed to inspect container '{container.name}': {e}"
             logging.error(error_msg, extra={"indent": 2})
-            notification_manager.add_error(error_msg)
+            notification_manager.add_update_detail(
+                container_name=container.name,
+                old_version="Unknown",
+                new_version="Unknown",
+                update_type="unknown",
+                status="failed",
+                error_message=error_msg,
+            )
             continue
 
         # Debug logging with conditional formatting
@@ -420,14 +432,12 @@ def main():
                             container.name,
                             dry_run,
                             update_type=update_type,
-                            old_version=image_metadata.get("tag") if image_metadata else None,
+                            old_version=current_tag,
                             new_version=remote_image_tag.get("name"),
                         )
                         if not pre_success and not should_continue_on_pre_failure():
                             error_msg = f"Pre-script failed for container '{container.name}'"
                             logging.error(error_msg, extra={"indent": 4})
-                            notification_manager.add_error(error_msg)
-                            current_tag = image_metadata.get("tag") if image_metadata else "Unknown"
                             new_tag = remote_image_tag.get("name") if remote_image_tag else "Unknown"
                             update_duration = time.time() - update_start_time
                             notification_manager.add_update_detail(
@@ -436,7 +446,8 @@ def main():
                                 new_version=new_tag,
                                 update_type=update_type,
                                 duration=update_duration,
-                                status="failed"
+                                status="failed",
+                                error_message=error_msg,
                             )
                             continue
 
@@ -475,11 +486,9 @@ def main():
                             )
                             break
                         else:
-                            # Prepare update info for potential failure tracking
-                            current_tag = image_metadata.get("tag") if image_metadata else "Unknown"
                             new_tag = remote_image_tag.get("name") if remote_image_tag else "Unknown"
 
-                            new_container = engines.recreate_container(client, container, new_image_reference, container_inspect_data, dry_run, image_inspect_data, notification_manager, update_type=update_type, old_version=current_tag, new_version=new_tag)
+                            new_container, recreate_error = engines.recreate_container(client, container, new_image_reference, container_inspect_data, dry_run, image_inspect_data, notification_manager, update_type=update_type, old_version=current_tag, new_version=new_tag)
                             if new_container:
                                 try:
                                     # Refresh container and used image information
@@ -511,9 +520,6 @@ def main():
                                 except Exception as e:
                                     error_msg = f"Update failed for container '{new_container.name}': {e}"
                                     logging.error(error_msg, extra={"indent": 4})
-                                    notification_manager.add_error(error_msg)
-
-                                    # Add failed update to notification statistics
                                     update_duration = time.time() - update_start_time
                                     notification_manager.add_update_detail(
                                         container_name=new_container.name,
@@ -521,14 +527,12 @@ def main():
                                         new_version=new_tag,
                                         update_type=update_type,
                                         duration=update_duration,
-                                        status="failed"
+                                        status="failed",
+                                        error_message=error_msg,
                                     )
                             else:
-                                error_msg = f"Failed to recreate container '{container.name}'"
+                                error_msg = recreate_error or f"Failed to recreate container '{container.name}'"
                                 logging.error(error_msg, extra={"indent": 4})
-                                notification_manager.add_error(error_msg)
-
-                                # Add failed update to notification statistics
                                 update_duration = time.time() - update_start_time
                                 notification_manager.add_update_detail(
                                     container_name=container.name,
@@ -536,7 +540,8 @@ def main():
                                     new_version=new_tag,
                                     update_type=update_type,
                                     duration=update_duration,
-                                    status="failed"
+                                    status="failed",
+                                    error_message=error_msg,
                                 )
 
                         # 4. Wait for some seconds
@@ -566,7 +571,10 @@ def main():
 
         elif not remote_image_tags:
             logging.info(f"No relevant image updates available for container '{container.name}'", extra={"indent": 2})
-            notification_manager.increment_skipped()
+            notification_manager.add_skip_detail(
+                container.name,
+                "No relevant image tags available from registry",
+            )
         else:
             error_msg = (
                 f"Missing required data for container '{container.name if container else 'UNKNOWN'}': "
@@ -578,7 +586,14 @@ def main():
                 f"{'remote_image_tags' if not remote_image_tags else ''}"
             )
             logging.error(error_msg, extra={"indent": 2})
-            notification_manager.add_error(error_msg)
+            notification_manager.add_update_detail(
+                container_name=container.name,
+                old_version=image_metadata.get("tag") if image_metadata else "Unknown",
+                new_version="Unknown",
+                update_type="unknown",
+                status="failed",
+                error_message=error_msg,
+            )
 
     # Handle self-updates at the very end to avoid interrupting other container updates
     if hasattr(main, "self_update_info") and main.self_update_info:
@@ -608,4 +623,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    try:
+        main()
+    except KeyboardInterrupt:
+        logging.info("Interrupted by user, exiting...")
+        sys.exit(130)

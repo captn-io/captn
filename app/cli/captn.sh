@@ -44,16 +44,18 @@ else
   }
 
   # Trap to ensure lock is released on exit
-  trap 'rm -f "$LOCKFILE"; exit' INT TERM EXIT
+  trap 'rm -f "$LOCKFILE"' EXIT
 
-  timeout $TIMEOUT python -u -m app "$@"
+  if [ -t 0 ]; then
+    # Interactive session: run python directly
+    python -u -m app "$@"
+  else
+    timeout $TIMEOUT python -u -m app "$@"
+  fi
   EXIT_CODE=$?
 
-  # Release lock and remove lockfile manually
   rm -f "$LOCKFILE"
-
-  # Remove trap before exiting to avoid unnecessary deletion attempts
-  trap - INT TERM EXIT
+  trap - EXIT
 fi
 
 if [ $EXIT_CODE -eq 124 ]; then

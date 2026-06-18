@@ -15,11 +15,14 @@ This document provides a comprehensive reference for all captn configuration opt
   - [selfUpdate](#selfupdate)
   - [preScripts](#prescripts)
   - [postScripts](#postscripts)
+  - [Registry Support](#registry-support)
   - [docker](#docker)
   - [ghcr](#ghcr)
   - [registryAuth](#registryauth)
+    - [registry-credentials.json](#registry-credentialsjson)
   - [envFiltering](#envfiltering)
   - [notifiers](#notifiers)
+    - [Update Report Reference](#update-report-reference)
   - [notifiers.telegram](#notifierstelegram)
   - [notifiers.email](#notifiersemail)
   - [assignments](#assignments)
@@ -561,9 +564,55 @@ rollbackOnFailure = true
 
 ---
 
+## Registry Support
+
+captn discovers available image tags from the registry referenced in each container's image. The registry type is detected automatically from the image reference.
+
+### How registries are detected
+
+From an image reference like `registry.example.com/myorg/myapp:1.2.3`, captn extracts:
+
+| Component     | Example                |
+| ------------- | ---------------------- |
+| Registry host | `registry.example.com` |
+| Repository    | `myorg/myapp`          |
+| Tag           | `1.2.3`                |
+
+Detection rules:
+
+- **No hostname** (e.g. `nginx:1.25`): `docker.io` (Docker Hub, `library/` namespace implied)
+- **Hostname without dot** (e.g. `myorg/myapp:1.0`): `docker.io`
+- **Hostname with dot** (e.g. `ghcr.io/org/app:1.0`): registry host is the first path segment
+
+API URLs are built as `https://{registry}/v2/{repository}` for all non-Docker-Hub registries.
+
+### Supported registry types
+
+| Registry                      | Example image                        | Tag discovery                                  | Config section |
+| ----------------------------- | ------------------------------------ | ---------------------------------------------- | -------------- |
+| **Docker Hub**                | `nginx:1.25`, `library/mariadb:11.4` | Docker Hub REST API (`/repositories/.../tags`) | `[docker]`     |
+| **GitHub Container Registry** | `ghcr.io/org/app:1.0`                | GHCR-specific API and token flow               | `[ghcr]`       |
+| **OCI v2 compatible**         | `registry.my-domain.com/org/app:1.0` | OCI Distribution API (`/v2/.../tags/list`)     | `[ghcr]`       |
+
+### Authentication for private registries
+
+Private or authenticated registries require `[registryAuth]` to be enabled and a credentials file — see [registry-credentials.json](#registry-credentialsjson) for the full reference.
+
+Authentication is used for both **tag discovery** and **image pulls**.
+
+### Limitations
+
+- **OCI v2 required:** The registry must support the Distribution API endpoint `GET /v2/{repository}/tags/list`. Registries with non-standard APIs are not supported.
+- **`latest` tag:** Containers pinned to `latest` may not receive semver-based update suggestions, because tag filtering requires a concrete version string to match against. Prefer explicit version tags (e.g. `1.2.3`) where updates are desired.
+- **Pagination:** OCI v2 registries use `pageCrawlLimit` and `pageSize` from `[ghcr]` (defaults: 1000 pages × 100 tags).
+
+---
+
 ### `[docker]`
 
 Docker Hub registry configuration.
+
+**Applies to:** images from `docker.io` only (including unprefixed names like `nginx:1.25`).
 
 #### `apiUrl`
 
@@ -578,7 +627,7 @@ Docker Hub API URL for fetching image metadata.
 apiUrl = https://registry.hub.docker.com/v2
 ```
 
-**Note:** Usually doesn't need to be changed unless using a custom registry.
+**Note:** This section configures the Docker Hub API only. It does not apply to private or custom registries — those use OCI v2 automatically (see [Registry Support](#registry-support)).
 
 #### `pageCrawlLimit`
 
@@ -697,10 +746,11 @@ enabled = false
 
 #### `credentialsFile`
 
-Path to JSON file containing registry credentials.
+Path to the JSON credentials file (see [registry-credentials.json](#registry-credentialsjson)).
 
 - **Type:** String (path)
 - **Default:** `/app/conf/registry-credentials.json`
+- **Required when:** `[registryAuth] enabled = true` (The file must exist and contain valid JSON)
 
 **Example:**
 ```ini
@@ -708,7 +758,52 @@ Path to JSON file containing registry credentials.
 credentialsFile = /app/conf/registry-credentials.json
 ```
 
-**Credentials File Format:**
+#### registry-credentials.json
+
+Credentials for private container registries. Referenced by `credentialsFile` in `[registryAuth]`.
+
+**Default location:** `/app/conf/registry-credentials.json` (mount your config directory to `/app/conf` in Docker)
+
+**File requirements:**
+
+- Valid JSON format
+- One or both top-level keys: `registries`, `repositories` (either may be omitted or empty)
+
+**Top-level structure:**
+
+| Key            | Purpose                                                                           |
+| -------------- | --------------------------------------------------------------------------------- |
+| `registries`   | Credentials applied to **all** repositories on a registry                         |
+| `repositories` | Credentials for a **specific** repository — overrides `registries` for that image |
+
+**Authentication priority:**
+
+1. Repository-specific entry in `repositories` (if the image repository name matches)
+2. Registry-level entry in `registries` (matched by API URL `https://{hostname}/v2`)
+3. No authentication (anonymous access)
+
+##### Registry keys (`registries`)
+
+Use the registry **API URL** including the `/v2` suffix:
+
+| Image                              | Registry key                         |
+| ---------------------------------- | ------------------------------------ |
+| `nginx:1.25`                       | `https://registry.hub.docker.com/v2` |
+| `ghcr.io/org/app:1.0`              | `https://ghcr.io/v2`                 |
+| `registry.example.com/org/app:1.0` | `https://registry.example.com/v2`    |
+
+captn also attempts partial hostname matching (e.g. configured `example.com` may match `registry.example.com`).
+
+##### Repository keys (`repositories`)
+
+Use the repository path **without** the registry hostname, e.g.:
+
+| Image reference                              | Repository key      |
+| -------------------------------------------- | ------------------- |
+| `captnio/captn:1.0`                          | `captnio/captn`     |
+| `registry.example.com/myorg/private-app:2.0` | `myorg/private-app` |
+| `ghcr.io/myorg/private-app:2.0`              | `myorg/private-app` |
+
 ```json
 {
     "registries": {
@@ -718,6 +813,10 @@ credentialsFile = /app/conf/registry-credentials.json
         },
         "https://ghcr.io/v2": {
             "token": "your_github_personal_access_token"
+        },
+        "https://registry.example.com/v2": {
+            "username": "your-gitlab-username",
+            "password": "glpat-xxxxxxxxxxxx"
         }
     },
     "repositories": {
@@ -727,21 +826,51 @@ credentialsFile = /app/conf/registry-credentials.json
         },
         "myorg/private-repo": {
             "token": "specific_token_for_private_repo"
+        },
+        "myorg/subgroup/private-app": {
+            "username": "deploy-token-user",
+            "password": "glpat-xxxxxxxxxxxx"
         }
     }
 }
 ```
 
-**Structure:**
-- `registries`: Registry-level credentials (apply to all images from that registry)
-- `repositories`: Repository-specific credentials (override registry-level credentials)
+If both `registries` and `repositories` define credentials for the same image, **repository entries take precedence**.
 
-**Authentication Priority:**
-1. Repository-specific credentials (if defined)
-2. Registry-level credentials (if defined)
-3. No authentication
+##### Minimal examples
 
-**Complete Example:**
+Docker Hub only:
+
+```json
+{
+    "registries": {
+        "https://registry.hub.docker.com/v2": {
+            "username": "myuser",
+            "password": "dckr_pat_xxxxxxxx"
+        }
+    }
+}
+```
+
+Single private GitLab project (repository-level):
+
+```json
+{
+    "repositories": {
+        "myorg/subgroup/my-app": {
+            "username": "gitlab-ci-token",
+            "password": "glpat-xxxxxxxxxxxx"
+        }
+    }
+}
+```
+
+##### Security notes
+
+- Store `registry-credentials.json` alongside `captn.cfg` in your mounted config directory
+- Restrict file permissions (e.g. `chmod 600`)
+
+**Complete `[registryAuth]` example:**
 ```ini
 [registryAuth]
 enabled = true
@@ -909,7 +1038,53 @@ enabled = false
 
 **Note:** Even if individual notifiers are enabled, they won't work if this is `false`.
 
----
+#### `sendOn`
+
+Control when update reports are sent.
+
+- **Type:** String
+- **Default:** `changes`
+- **Values:**
+  - `changes` — only when at least one update, failure, skip, error, or warning occurred (recommended)
+  - `all` — after every run where at least one container was checked, even if nothing changed
+
+**Example:**
+```ini
+[notifiers]
+sendOn = changes
+```
+
+With `sendOn = changes`, a run that checked containers but found no updates, failures, or skips will **not** send Telegram or email notifications.
+
+#### `sendOnDryRun`
+
+Send notifications for dry-run executions.
+
+- **Type:** Boolean
+- **Default:** `true`
+- **Values:** `true`, `false`
+
+**Example:**
+```ini
+[notifiers]
+sendOnDryRun = false
+```
+
+Set to `false` to suppress notifications when running `captn --dry-run`.
+
+#### Update Report Reference
+
+After each update run, captn can send a report via Telegram and/or email. Both channels use the same underlying statistics. This section explains what each part of the report means.
+
+**Summary**
+
+| Counter      | Counts       | Meaning                                                                                              |
+| ------------ | ------------ | ---------------------------------------------------------------------------------------------------- |
+| **Checked**  | Containers   | Passed rule pre-check and were inspected (metadata and remote tags fetched)                          |
+| **Updated**  | Update steps | Successful updates applied or simulated; progressive upgrades produce multiple entries per container |
+| **Failed**   | Errors       | Errors recorded during the run (inspect, script, or recreation failures)                             |
+| **Skipped**  | Containers   | If a containers assigned rule allows no updates, or registry returned no tags                        |
+| **Duration** | Run          | Total elapsed time of the update run                                                                 |
 
 ### `[notifiers.telegram]`
 
@@ -1679,6 +1854,16 @@ executionTimeout =
 # Possible values: true, false
 # Default: false
 enabled =
+# When to send notifications
+# Possible values: changes, all
+#   changes - only on updates, failures, skips, errors, or warnings (recommended)
+#   all     - after every run with at least one container checked (legacy)
+# Default: changes
+sendOn =
+# Send notifications for dry-run executions
+# Possible values: true, false
+# Default: true
+sendOnDryRun =
 
 [notifiers.telegram]
 # Enable Telegram notifications

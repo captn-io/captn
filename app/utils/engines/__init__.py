@@ -122,7 +122,7 @@ def recreate_container(client, container, image, container_inspect_data, dry_run
         new_version (str, optional): Image tag after the update
 
     Returns:
-        Container object if successful, None otherwise
+        Tuple of (container, error_message). On success: (container, None). On failure: (None, error_message).
     """
     engine = "docker"
 

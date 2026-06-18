@@ -4,6 +4,7 @@ from typing import Dict, Any, List, Optional
 from .base import NotificationCollector
 from .telegram import TelegramNotifier
 from .smtp import SMTPNotifier
+from .report import should_send_notification
 from ..config import config
 from ..common import get_docker_host_hostname
 
@@ -21,7 +22,7 @@ class NotificationManager:
             "containers_failed": 0,
             "containers_skipped": 0,
             "update_details": [],
-            "errors": [],
+            "skip_details": [],
             "warnings": [],
             "start_time": None,
             "end_time": None
@@ -68,25 +69,34 @@ class NotificationManager:
             elif email_config.enabled:
                 logging.warning("Email notifications enabled but smtpServer, fromAddr, or toAddr not configured")
 
-    def add_update_detail(self, container_name: str, old_version: str, new_version: str, update_type: str, duration: float = None, status: str = "succeeded"):
+    def add_update_detail(
+        self,
+        container_name: str,
+        old_version: str,
+        new_version: str,
+        update_type: str,
+        duration: float = None,
+        status: str = "succeeded",
+        error_message: str = None,
+    ):
         """Add an update to the statistics."""
-        self.update_stats["update_details"].append({
+        detail = {
             "container_name": container_name,
             "old_version": old_version,
             "new_version": new_version,
             "update_type": update_type,
             "duration": duration,
-            "status": status
-        })
+            "status": status,
+        }
+        if error_message:
+            detail["error_message"] = error_message
 
-        # Only increment containers_updated for successful updates
+        self.update_stats["update_details"].append(detail)
+
         if status == "succeeded":
             self.update_stats["containers_updated"] += 1
-
-    def add_error(self, error_message: str):
-        """Add an error to the statistics."""
-        self.update_stats["errors"].append(error_message)
-        self.update_stats["containers_failed"] += 1
+        elif status == "failed":
+            self.update_stats["containers_failed"] += 1
 
     def add_warning(self, warning_message: str):
         """Add a warning to the statistics."""
@@ -96,8 +106,12 @@ class NotificationManager:
         """Increment the processed containers counter."""
         self.update_stats["containers_processed"] += 1
 
-    def increment_skipped(self):
-        """Increment the skipped containers counter."""
+    def add_skip_detail(self, container_name: str, reason: str):
+        """Record a skipped container and the reason it was not processed."""
+        self.update_stats["skip_details"].append({
+            "container_name": container_name,
+            "reason": reason,
+        })
         self.update_stats["containers_skipped"] += 1
 
     def set_start_time(self):
@@ -108,6 +122,14 @@ class NotificationManager:
         """Set the end time of the update process."""
         self.update_stats["end_time"] = datetime.now()
 
+    def should_notify(self, dry_run: bool = False) -> bool:
+        """Return whether this run should trigger notifications."""
+        if not self.notifiers:
+            return False
+        if not hasattr(config, "notifiers"):
+            return False
+        return should_send_notification(self.update_stats, dry_run, config.notifiers)
+
     def send_update_report(self, dry_run: bool = False):
         """Send update report to all configured notifiers."""
         if not self.notifiers:
@@ -116,6 +138,15 @@ class NotificationManager:
 
         # Set end time before sending report
         self.set_end_time()
+
+        if not self.should_notify(dry_run):
+            send_on = getattr(config.notifiers, "sendOn", "changes")
+            logging.debug(
+                "Skipping notification: no noteworthy events (sendOn=%s, dry_run=%s)",
+                send_on,
+                dry_run,
+            )
+            return
 
         # Prepare update data
         update_data = {
@@ -149,7 +180,7 @@ class NotificationManager:
             "containers_failed": 0,
             "containers_skipped": 0,
             "update_details": [],
-            "errors": [],
+            "skip_details": [],
             "warnings": [],
             "start_time": None,
             "end_time": None

@@ -60,3 +60,7 @@ ehthumbs.db
 /app/logs/*
 /app/venv/*
 /app/conf/*
+/.dev/*.log
+/.dev/*.md
+/.dev/*.txt
+

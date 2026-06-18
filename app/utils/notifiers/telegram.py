@@ -3,6 +3,7 @@ import logging
 import json
 import os
 from .base import BaseNotifier
+from .report import format_duration, update_type_emoji
 from typing import List, Dict, Any
 from datetime import datetime
 
@@ -288,7 +289,6 @@ class TelegramNotifier(BaseNotifier):
                 - containers_failed: int
                 - containers_skipped: int
                 - update_details: List[Dict] with container update details
-                - errors: List[str] (optional)
                 - warnings: List[str] (optional)
 
         Returns:
@@ -302,7 +302,7 @@ class TelegramNotifier(BaseNotifier):
         containers_failed = update_data.get("containers_failed", 0)
         containers_skipped = update_data.get("containers_skipped", 0)
         update_details = update_data.get("update_details", [])
-        errors = update_data.get("errors", [])
+        skip_details = update_data.get("skip_details", [])
         warnings = update_data.get("warnings", [])
         start_time = update_data.get("start_time")
         end_time = update_data.get("end_time")
@@ -325,20 +325,13 @@ class TelegramNotifier(BaseNotifier):
 
         # Summary
         lines.append("<b>📊 Summary:</b>")
-        lines.append(f"• Processed: {containers_processed}")
+        lines.append(f"• Checked: {containers_processed}")
         lines.append(f"• Updated: {containers_updated}")
         lines.append(f"• Failed: {containers_failed}")
         lines.append(f"• Skipped: {containers_skipped}")
 
-        # Add total duration if available
-        if start_time and end_time:
-            total_duration = (end_time - start_time).total_seconds()
-            if total_duration < 60:
-                duration_str = f"{total_duration:.1f}s"
-            elif total_duration < 3600:
-                duration_str = f"{total_duration / 60:.1f}m"
-            else:
-                duration_str = f"{total_duration / 3600:.1f}h"
+        duration_str = format_duration(start_time, end_time)
+        if duration_str:
             lines.append(f"• Duration: {duration_str}")
 
         lines.append("")
@@ -357,15 +350,6 @@ class TelegramNotifier(BaseNotifier):
                 update_type = detail.get("update_type", "Unknown")
                 duration = detail.get("duration")
 
-                # Use emoji based on update type
-                type_emoji = {
-                    "major": "🚀",
-                    "minor": "✨",
-                    "patch": "🐞",
-                    "build": "🏗️",
-                    "digest": "📦"
-                }.get(update_type, "⚪")
-
                 # Add duration if available
                 if duration is not None:
                     if duration < 60:
@@ -380,7 +364,7 @@ class TelegramNotifier(BaseNotifier):
                 lines.append(f"")
                 lines.append(f"<b>{container_name}</b>")
                 lines.append(f"<code>{old_version} → {new_version}</code>")
-                lines.append(f"<code>   {type_emoji} {update_type}</code>")
+                lines.append(f"<code>   {update_type_emoji(update_type)} {update_type}</code>")
                 lines.append(f"<code>   ⏱️ {duration_str}</code>")
 
             if len(successful_updates) > 10:
@@ -397,15 +381,6 @@ class TelegramNotifier(BaseNotifier):
                 update_type = detail.get("update_type", "Unknown")
                 duration = detail.get("duration")
 
-                # Use emoji based on update type
-                type_emoji = {
-                    "major": "🚀",
-                    "minor": "✨",
-                    "patch": "🐞",
-                    "build": "🏗️",
-                    "digest": "📦"
-                }.get(update_type, "⚪")
-
                 # Add duration if available
                 if duration is not None:
                     if duration < 60:
@@ -420,20 +395,25 @@ class TelegramNotifier(BaseNotifier):
                 lines.append(f"")
                 lines.append(f"<b>{container_name}</b>")
                 lines.append(f"<code>{old_version} → {new_version}</code>")
-                lines.append(f"<code>   {type_emoji} {update_type}</code>")
+                lines.append(f"<code>   {update_type_emoji(update_type)} {update_type}</code>")
                 lines.append(f"<code>   ⏱️ {duration_str}</code>")
+                error_message = detail.get("error_message")
+                if error_message:
+                    lines.append(f"<code>   ❌ {error_message}</code>")
 
             if len(failed_updates) > 10:
                 lines.append(f"... and {len(failed_updates) - 10} more")
             lines.append("")
 
-        # Errors
-        if errors:
-            lines.append("<b>❌ Errors:</b>")
-            for error in errors[:5]:  # Limit to first 5 errors
-                lines.append(f"• {error}")
-            if len(errors) > 5:
-                lines.append(f"   ... and {len(errors) - 5} more")
+        # Skipped containers
+        if skip_details:
+            lines.append("<b>⏭️ Skipped Containers:</b>")
+            for detail in skip_details:
+                container_name = detail.get("container_name", "Unknown")
+                reason = detail.get("reason", "Unknown")
+                lines.append(f"")
+                lines.append(f"<b>{container_name}</b>")
+                lines.append(f"<code>{reason}</code>")
             lines.append("")
 
         # Warnings

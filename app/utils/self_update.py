@@ -161,7 +161,7 @@ def execute_self_update_from_helper(client, target_container_name, dry_run):
             return
 
         # Recreate the container with the new image
-        new_container = recreate_container(
+        new_container, _ = recreate_container(
             client,
             target_container,
             new_image_reference,

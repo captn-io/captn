@@ -275,6 +275,15 @@ def _run_script_with_timeout(script_path: str, env_vars: Dict[str, str], timeout
             "error": None if process.returncode == 0 else f"Script exited with code {process.returncode}"
         }
 
+    except KeyboardInterrupt:
+        if process and process.poll() is None:
+            try:
+                process.terminate()
+                process.wait(timeout=2)
+            except Exception:
+                process.kill()
+        raise
+
     except Exception as e:
         if process:
             try:

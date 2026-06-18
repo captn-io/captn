@@ -687,18 +687,23 @@ jobs:
       id: detect_branch
       run: |
         # Try to detect the source branch from the merge commit
-        # Method 1: Check if this is a merge commit
         PARENT_COUNT=$(git rev-list --parents -n 1 HEAD | wc -w)
         
         if [ $PARENT_COUNT -gt 2 ]; then
-          # This is a merge commit, get the branch name from commit message
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          # Use git log so commit message backticks are not interpreted by bash
+          COMMIT_MSG=$(git log -1 --pretty=%s)
           echo "Commit message: $COMMIT_MSG"
           
-          # Extract branch name from merge commit message (format: "Merge branch 'branch-name' into main")
-          if [[ "$COMMIT_MSG" =~ Merge.*branch[[:space:]][\'\"]([^\'\"]+)[\'\"] ]]; then
+          BRANCH_NAME=""
+          # GitHub PR merge: "Merge pull request #N from owner/branch-name"
+          if [[ "$COMMIT_MSG" =~ Merge[[:space:]]pull[[:space:]]request[[:space:]]#[0-9]+[[:space:]]from[[:space:]][^/]+/(.+)$ ]]; then
             BRANCH_NAME="${BASH_REMATCH[1]}"
-            # Remove origin/ prefix if present
+          # Direct merge: "Merge branch 'branch-name' into main"
+          elif [[ "$COMMIT_MSG" =~ Merge.*branch[[:space:]][\'\"]([^\'\"]+)[\'\"] ]]; then
+            BRANCH_NAME="${BASH_REMATCH[1]}"
+          fi
+          
+          if [ -n "$BRANCH_NAME" ]; then
             BRANCH_NAME="${BRANCH_NAME#origin/}"
             echo "Detected merged branch: $BRANCH_NAME"
             echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT

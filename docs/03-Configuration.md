@@ -605,6 +605,7 @@ Authentication is used for both **tag discovery** and **image pulls**.
 - **OCI v2 required:** The registry must support the Distribution API endpoint `GET /v2/{repository}/tags/list`. Registries with non-standard APIs are not supported.
 - **`latest` tag:** Containers pinned to `latest` may not receive semver-based update suggestions, because tag filtering requires a concrete version string to match against. Prefer explicit version tags (e.g. `1.2.3`) where updates are desired.
 - **Pagination:** OCI v2 registries use `pageCrawlLimit` and `pageSize` from `[ghcr]` (defaults: 1000 pages × 100 tags).
+- **Docker Hub anonymous pagination:** Without Docker Hub credentials, Docker Hub rejects tag list requests beyond an offset of about **1000 tags** (HTTP 403, e.g. page 11 with `pageSize = 100`) with a message such as *pagination offset too large for anonymous requests; sign in to page further*. Large public repositories (for example `library/lidarr`) often exceed this limit. captn then aborts tag discovery for that image, logs an error, and does **not** treat the failure as “no updates available”. To crawl the full tag list (including major/minor candidates), enable `[registryAuth]` and add Docker Hub credentials for `https://registry.hub.docker.com/v2` in `registry-credentials.json` (see below).
 
 ---
 
@@ -643,7 +644,7 @@ Maximum number of pages to crawl when searching for images.
 pageCrawlLimit = 1000
 ```
 
-**Note:** Higher values allow finding older images but increase API usage.
+**Note:** Higher values allow finding older images but increase API usage. Anonymous Docker Hub access is still capped by Hub’s pagination offset limit (~1000 tags); raising `pageCrawlLimit` alone does not bypass that — see [Limitations](#limitations) and `[registryAuth]`.
 
 #### `pageSize`
 
@@ -839,7 +840,7 @@ If both `registries` and `repositories` define credentials for the same image, *
 
 ##### Minimal examples
 
-Docker Hub only:
+Docker Hub only (also required for large **public** Hub repositories when anonymous pagination is insufficient):
 
 ```json
 {

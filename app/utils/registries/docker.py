@@ -86,6 +86,31 @@ def get_dockerhub_jwt(repository_name: Optional[str] = None):
     return None
 
 
+def _is_anonymous_pagination_forbidden(response: Optional[requests.Response]) -> bool:
+    """
+    Detect Docker Hub's anonymous pagination offset limit (HTTP 403).
+
+    Docker Hub allows anonymous tag listing only up to an offset of ~1000
+    (e.g. page 11 with page_size=100). Further pages require sign-in.
+    """
+    if response is None or response.status_code != 403:
+        return False
+
+    message = ""
+    try:
+        payload = response.json()
+        if isinstance(payload, dict):
+            message = payload.get("message") or ""
+    except (ValueError, requests.exceptions.JSONDecodeError):
+        message = response.text or ""
+
+    message_l = message.lower()
+    return (
+        "pagination offset too large" in message_l
+        or "sign in to page further" in message_l
+    )
+
+
 def get_image_tags(imageTagsUrl, imageTag, max_pages=config.docker.pageCrawlLimit, page_size=config.docker.pageSize):
     """
     Retrieve and process available image tags for a Docker Hub image.
@@ -101,7 +126,9 @@ def get_image_tags(imageTagsUrl, imageTag, max_pages=config.docker.pageCrawlLimi
         page_size (int): Number of tags per page
 
     Returns:
-        List[Dict]: List of filtered and sorted image tag metadata
+        List[Dict] | None: Filtered and sorted image tag metadata, an empty list when
+        the crawl completed but no relevant tags were found, or None when the crawl
+        was aborted (e.g. Docker Hub anonymous pagination limit / request error).
     """
     tags = []
     page_count = 0
@@ -147,9 +174,25 @@ def get_image_tags(imageTagsUrl, imageTag, max_pages=config.docker.pageCrawlLimi
 
             imageTagsUrl = data.get("next")
             page_count += 1
+        except requests.exceptions.HTTPError as e:
+            if _is_anonymous_pagination_forbidden(e.response):
+                logger.error(
+                    f"Docker Hub anonymous pagination limit reached while fetching tags "
+                    f"from {imageTagsUrl} (offset beyond ~1000 tags). "
+                    f"Sign in by configuring Docker Hub credentials in registry-credentials.json "
+                    f"under registries['https://registry.hub.docker.com/v2'] "
+                    f"(username + password/PAT) and enabling [registryAuth]. "
+                    f"Without authentication, tag discovery for large repositories is incomplete "
+                    f"and updates must not be inferred from a partial tag list. "
+                    f"API response: {e}",
+                    extra={"indent": 2},
+                )
+            else:
+                logger.error(f"Error fetching image tags from {imageTagsUrl}: {e}", extra={"indent": 2})
+            return None
         except requests.exceptions.RequestException as e:
             logger.error(f"Error fetching image tags from {imageTagsUrl}: {e}", extra={"indent": 2})
-            break
+            return None
 
     logger.debug(f"-> tags:\n{json.dumps(tags, indent=4)}", extra={"indent": 2})
     tags = generic.filter_image_tags(tags, imageTag)

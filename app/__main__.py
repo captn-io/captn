@@ -569,6 +569,21 @@ def main():
                 else:
                     logging.warning(f"Unable to process update of type '{update_type}' for container '{container.name}'", extra={"indent": 2})
 
+        elif remote_image_tags is None:
+            error_msg = (
+                f"Failed to retrieve a complete image tag list for container '{container.name}' "
+                f"from the registry (discovery aborted; see previous error). "
+                f"This is not treated as 'no updates available'."
+            )
+            logging.error(error_msg, extra={"indent": 2})
+            notification_manager.add_update_detail(
+                container_name=container.name,
+                old_version=image_metadata.get("tag") if image_metadata else "Unknown",
+                new_version="Unknown",
+                update_type="unknown",
+                status="failed",
+                error_message=error_msg,
+            )
         elif not remote_image_tags:
             logging.info(f"No relevant image updates available for container '{container.name}'", extra={"indent": 2})
             notification_manager.add_skip_detail(

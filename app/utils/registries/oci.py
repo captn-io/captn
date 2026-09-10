@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""OCI Distribution API v2 registry support (GitLab, private registries, etc.)."""
+"""OCI Distribution API v2 registry support (GHCR, GitLab, Harbor, and other OCI registries)."""
 
 import json
 import logging
@@ -13,7 +13,7 @@ import requests
 
 from ..config import config
 from . import generic
-from .auth import get_auth_headers
+from .auth import obtain_oci_auth_headers
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,6 @@ def fetch_tag_details(imageUrl: str, tags: List[str], headers: Dict[str, str]) -
 
     for tag in tags:
         url = f"{imageUrl}/manifests/{tag}"
-        tag_info = {}
         created = None
 
         try:
@@ -78,6 +77,16 @@ def fetch_tag_details(imageUrl: str, tags: List[str], headers: Dict[str, str]) -
                     if config_response.ok:
                         created = config_response.json().get("created")
 
+            if not created:
+                for entry in manifest.get("history", []):
+                    try:
+                        v1 = json.loads(entry.get("v1Compatibility", "{}"))
+                    except (TypeError, json.JSONDecodeError):
+                        continue
+                    created = v1.get("created")
+                    if created:
+                        break
+
             tag_info = {
                 "name": tag,
                 "last_updated": created,
@@ -100,23 +109,40 @@ def get_image_tags(
     imageTag: str,
     registry_api_url: str,
     max_pages=config.ghcr.pageCrawlLimit,
-) -> List[Any]:
+) -> Optional[List[Any]]:
     """
     Retrieve and process image tags from an OCI Distribution v2 compatible registry.
+
+    Authentication uses the standard Bearer challenge flow (shared for GHCR, GitLab,
+    Harbor, ...). See :func:`obtain_oci_auth_headers`.
+
+    Returns:
+        list | None: Filtered tag metadata, ``[]`` when discovery completed with no
+        relevant tags, or ``None`` when auth/tag fetch aborted (incomplete).
     """
     tags: List[str] = []
     page_size = int(config.ghcr.pageSize)
-    auth_headers = get_auth_headers(registry_api_url, imageName)
-    headers = auth_headers if auth_headers else {}
-
-    if headers:
-        logger.debug(f"Using configured authentication for {registry_api_url}", extra={"indent": 2})
-    else:
-        logger.debug(f"No authentication configured for {registry_api_url} (anonymous)", extra={"indent": 2})
-
     next_url = update_url_with_page_size(imageTagsUrl, page_size)
 
-    for _ in range(max_pages):
+    headers = obtain_oci_auth_headers(
+        registry_api_url=registry_api_url,
+        repository_name=imageName,
+        probe_url=next_url,
+    )
+    if headers is None:
+        logger.error(
+            f"Failed to authenticate against OCI registry {registry_api_url} "
+            f"for repository '{imageName}'",
+            extra={"indent": 2},
+        )
+        return None
+
+    if headers:
+        logger.debug(f"Using OCI Bearer authentication for {registry_api_url}", extra={"indent": 2})
+    else:
+        logger.debug(f"Using anonymous access for OCI registry {registry_api_url}", extra={"indent": 2})
+
+    for _ in range(int(max_pages)):
         if not next_url:
             break
 
@@ -129,7 +155,7 @@ def get_image_tags(
             next_url = _parse_next_url(response.headers.get("Link", ""), page_size, registry_api_url)
         except requests.RequestException as e:
             logger.error(f"Error fetching tags from {next_url}: {e}", extra={"indent": 2})
-            break
+            return None
 
     logger.debug(f"tags:\n{json.dumps(tags, indent=4)}", extra={"indent": 2})
     filtered_tags = generic.filter_image_tags(tags, imageTag)

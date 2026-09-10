@@ -12,17 +12,10 @@ def get_image_tags(imageName, imageUrl, registry, imageTagsUrl, imageTag):
     """
     Retrieve available image tags from a container registry.
 
-    This function provides a unified interface to get image tags from different
-    registry types. It currently supports Docker Hub and GitHub Container Registry (GHCR).
-    The returned tags are filtered to include only relevant updates and are sorted
-    with the newest versions first.
-
-    Parameters:
-        imageName (str): Name of the image
-        imageUrl (str): URL for the image API endpoint
-        registry (str): Registry type (e.g., "docker.io", "ghcr.io")
-        imageTagsUrl (str): URL for the tags API endpoint
-        imageTag (str): Current image tag for filtering
+    Routing:
+    - ``docker.io`` -> Docker Hub REST API (Hub-specific auth + pagination)
+    - everything else (``ghcr.io``, GitLab, Harbor, ...) -> OCI Distribution API
+      with shared Bearer challenge authentication
 
     Returns:
         list | None: List of available image tags with metadata, an empty list when
@@ -35,7 +28,13 @@ def get_image_tags(imageName, imageUrl, registry, imageTagsUrl, imageTag):
     elif registry in ["ghcr.io"]:
         tags = ghcr.get_image_tags(imageName, imageUrl, imageTagsUrl, imageTag)
     else:
-        tags = oci.get_image_tags( imageName, imageUrl, imageTagsUrl, imageTag, registry_api_url=f"https://{registry}/v2")
+        tags = oci.get_image_tags(
+            imageName,
+            imageUrl,
+            imageTagsUrl,
+            imageTag,
+            registry_api_url=f"https://{registry}/v2",
+        )
 
     if tags is None:
         logger.debug(

@@ -537,9 +537,9 @@ def get_update_type(old_version, new_version, local_digests, remote_digest):
     based on configured rules.
 
     Returns one of the following strings:
-        - 'major': Major version difference (X.0.0 → Y.0.0)
-        - 'minor': Minor version difference (X.Y.0 → X.Z.0)
-        - 'patch': Patch version difference (X.Y.Z → X.Y.W)
+        - 'major': Major version difference (X.0.0 -> Y.0.0)
+        - 'minor': Minor version difference (X.Y.0 -> X.Z.0)
+        - 'patch': Patch version difference (X.Y.Z -> X.Y.W)
         - 'build': Build metadata difference (e.g., additional fourth version component)
         - 'digest': Version is the same, but the image digest has changed
         - 'scheme_change': Versioning scheme has changed (e.g., semantic to date-based)

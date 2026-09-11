@@ -14,6 +14,7 @@ import requests
 from ..config import config
 from . import generic
 from .auth import obtain_oci_auth_headers
+from .generic import set_last_discovery_error
 
 logger = logging.getLogger(__name__)
 
@@ -130,11 +131,12 @@ def get_image_tags(
         probe_url=next_url,
     )
     if headers is None:
-        logger.error(
+        cause = generic.get_last_discovery_error() or (
             f"Failed to authenticate against OCI registry {registry_api_url} "
-            f"for repository '{imageName}'",
-            extra={"indent": 2},
+            f"for repository '{imageName}'"
         )
+        logger.error(cause, extra={"indent": 2})
+        set_last_discovery_error(cause)
         return None
 
     if headers:
@@ -154,7 +156,11 @@ def get_image_tags(
             tags.extend(data.get("tags", []) or [])
             next_url = _parse_next_url(response.headers.get("Link", ""), page_size, registry_api_url)
         except requests.RequestException as e:
+            cause = str(e)
+            if getattr(getattr(e, "response", None), "status_code", None) == 429:
+                cause = f"Registry rate limit exceeded (HTTP 429) while fetching tags from {next_url}"
             logger.error(f"Error fetching tags from {next_url}: {e}", extra={"indent": 2})
+            set_last_discovery_error(cause)
             return None
 
     logger.debug(f"tags:\n{json.dumps(tags, indent=4)}", extra={"indent": 2})

@@ -13,6 +13,8 @@ import requests
 
 from ..config import config
 
+from . import generic
+
 logger = logging.getLogger(__name__)
 
 
@@ -374,29 +376,39 @@ def obtain_oci_auth_headers(
     try:
         probe = requests.get(probe_url, timeout=timeout)
     except requests.RequestException as e:
-        logger.error(f"OCI registry probe failed for {probe_url}: {e}", extra={"indent": 2})
+        cause = f"OCI registry probe failed for {probe_url}: {e}"
+        logger.error(cause, extra={"indent": 2})
+        generic.set_last_discovery_error(cause)
         return None
 
     if probe.ok:
         logger.debug(f"OCI registry probe succeeded anonymously for {probe_url}", extra={"indent": 2})
         return {}
 
+    if probe.status_code == 429:
+        cause = f"Registry rate limit exceeded (HTTP 429) during probe of {probe_url}"
+        logger.error(cause, extra={"indent": 2})
+        generic.set_last_discovery_error(cause)
+        return None
+
     if probe.status_code != 401:
-        logger.error(
+        cause = (
             f"OCI registry probe for {probe_url} returned HTTP {probe.status_code} "
-            f"(expected 200 or 401 for auth challenge)",
-            extra={"indent": 2},
+            f"(expected 200 or 401 for auth challenge)"
         )
+        logger.error(cause, extra={"indent": 2})
+        generic.set_last_discovery_error(cause)
         return None
 
     www_auth = probe.headers.get("WWW-Authenticate") or probe.headers.get("Www-Authenticate") or ""
     challenge = parse_www_authenticate(www_auth)
     if challenge.get("scheme", "").lower() != "bearer" or not challenge.get("realm"):
-        logger.error(
+        cause = (
             f"OCI registry returned 401 without a usable Bearer realm "
-            f"(WWW-Authenticate: {www_auth!r})",
-            extra={"indent": 2},
+            f"(WWW-Authenticate: {www_auth!r})"
         )
+        logger.error(cause, extra={"indent": 2})
+        generic.set_last_discovery_error(cause)
         return None
 
     scope = challenge.get("scope") or f"repository:{repository_name}:pull"
@@ -412,14 +424,17 @@ def obtain_oci_auth_headers(
             timeout=min(timeout, 20),
         )
     except requests.RequestException as e:
-        logger.error(
+        cause = (
             f"OCI token exchange failed for {registry_api_url} "
-            f"(repository={repository_name}): {e}",
-            extra={"indent": 2},
+            f"(repository={repository_name}): {e}"
         )
+        logger.error(cause, extra={"indent": 2})
+        generic.set_last_discovery_error(cause)
         return None
 
     if not token:
+        cause = f"OCI auth realm returned no token for {registry_api_url}"
+        generic.set_last_discovery_error(cause)
         return None
 
     if username:

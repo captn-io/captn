@@ -12,6 +12,7 @@ from ..config import config
 from ..interrupt import check_interrupted
 from . import generic
 from .auth import get_credentials
+from .generic import set_last_discovery_error
 
 logger = logging.getLogger(__name__)
 
@@ -176,22 +177,22 @@ def get_image_tags(imageTagsUrl, imageTag, max_pages=config.docker.pageCrawlLimi
             page_count += 1
         except requests.exceptions.HTTPError as e:
             if _is_anonymous_pagination_forbidden(e.response):
+                cause = (
+                    "Docker Hub anonymous pagination limit reached (sign in required)"
+                )
                 logger.error(
-                    f"Docker Hub anonymous pagination limit reached while fetching tags "
-                    f"from {imageTagsUrl} (offset beyond ~1000 tags). "
-                    f"Sign in by configuring Docker Hub credentials in registry-credentials.json "
-                    f"under registries['https://registry.hub.docker.com/v2'] "
-                    f"(username + password/PAT) and enabling [registryAuth]. "
-                    f"Without authentication, tag discovery for large repositories is incomplete "
-                    f"and updates must not be inferred from a partial tag list. "
+                    f"Docker Hub anonymous pagination limit reached while fetching tags from {imageTagsUrl}."
                     f"API response: {e}",
                     extra={"indent": 2},
                 )
             else:
+                cause = str(e)
                 logger.error(f"Error fetching image tags from {imageTagsUrl}: {e}", extra={"indent": 2})
+            set_last_discovery_error(cause)
             return None
         except requests.exceptions.RequestException as e:
             logger.error(f"Error fetching image tags from {imageTagsUrl}: {e}", extra={"indent": 2})
+            set_last_discovery_error(str(e))
             return None
 
     logger.debug(f"-> tags:\n{json.dumps(tags, indent=4)}", extra={"indent": 2})

@@ -4,6 +4,7 @@
 import logging
 
 from . import docker, ghcr, oci
+from .generic import clear_last_discovery_error, get_last_discovery_error
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ def get_image_tags(imageName, imageUrl, registry, imageTagsUrl, imageTag):
         discovery completed with no relevant tags, or None when discovery failed /
         was incomplete (caller must not treat this as "no updates").
     """
+    clear_last_discovery_error()
     logger.debug(f"Retrieving available image tags from '{registry}'", extra={"indent": 2})
     if registry in ["docker.io"]:
         tags = docker.get_image_tags(imageTagsUrl, imageTag)
@@ -38,7 +40,8 @@ def get_image_tags(imageName, imageUrl, registry, imageTagsUrl, imageTag):
 
     if tags is None:
         logger.debug(
-            f"Image tag discovery from '{registry}' failed or was incomplete",
+            f"Image tag discovery from '{registry}' failed or was incomplete"
+            + (f": {get_last_discovery_error()}" if get_last_discovery_error() else ""),
             extra={"indent": 2},
         )
         return None

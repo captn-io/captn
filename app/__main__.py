@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from app import __version__
 from .utils import cleanup, common, engines, self_update
 from .utils.registries import get_image_tags
+from .utils.registries.generic import get_last_discovery_error
 from .utils.common import setup_logging
 from .utils.config import config, create_example_config
 from .utils.scripts import execute_pre_script, execute_post_script, should_continue_on_pre_failure, should_rollback_on_post_failure
@@ -570,11 +571,10 @@ def main():
                     logging.warning(f"Unable to process update of type '{update_type}' for container '{container.name}'", extra={"indent": 2})
 
         elif remote_image_tags is None:
-            error_msg = (
-                f"Failed to retrieve a complete image tag list for container '{container.name}' "
-                f"from the registry (discovery aborted; see previous error). "
-                f"This is not treated as 'no updates available'."
-            )
+            cause = get_last_discovery_error()
+            error_msg = f"Failed to retrieve image tags for container '{container.name}'"
+            if cause:
+                error_msg = f"{error_msg}: {cause}"
             logging.error(error_msg, extra={"indent": 2})
             notification_manager.add_update_detail(
                 container_name=container.name,

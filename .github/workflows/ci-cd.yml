@@ -245,7 +245,7 @@ jobs:
           org.opencontainers.image.url=https://github.com/captn-io/captn
           org.opencontainers.image.source=https://github.com/captn-io/captn
           org.opencontainers.image.documentation=https://github.com/captn-io/captn/blob/main/README.md
-          org.opencontainers.image.base.name=docker.io/library/alpine:3.21.3
+          org.opencontainers.image.base.name=docker.io/library/alpine:3.24.1
           maintainer=captn.io <captn-io@jk-net.com>
 
     - name: Build and push Docker image

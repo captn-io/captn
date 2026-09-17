@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import base64
 import json
 import logging
 import os
-from typing import Dict, Optional
-from urllib.parse import urlparse
+import re
+from typing import Dict, Optional, Tuple
+from urllib.parse import urlencode, urlparse, urlunparse, parse_qsl
+
+import requests
+
 from ..config import config
+
+from . import generic
 
 logger = logging.getLogger(__name__)
 
@@ -181,11 +188,11 @@ class RegistryAuthManager:
 
     def get_auth_headers(self, registry_url: str, repository_name: Optional[str] = None) -> Dict[str, str]:
         """
-        Get authentication headers for a registry and optionally a specific repository.
+        Get static authentication headers from configured credentials.
 
-        This method generates appropriate authentication headers based on the
-        registry type and available credentials. It supports different authentication
-        methods for different registry types (e.g., Bearer tokens for GHCR, Basic auth for Docker Hub).
+        Prefer :func:`obtain_oci_auth_headers` for OCI Distribution API tag/manifest
+        access (GitLab, GHCR, Harbor, ...). This method remains useful for Docker
+        Engine login helpers and registries that accept a preconfigured Bearer token.
 
         Parameters:
             registry_url (str): The registry URL
@@ -198,20 +205,16 @@ class RegistryAuthManager:
         if not credentials:
             return {}
 
-        # Determine registry type and create appropriate headers
-        if "ghcr.io" in registry_url or "github.com" in registry_url:
-            # GHCR uses Bearer token
-            token = credentials.get("token")
-            if token:
-                return {"Authorization": f"Bearer {token}"}
-        else:
-            # Docker Hub and other registries use Basic auth
-            username = credentials.get("username")
-            password = credentials.get("password") or credentials.get("token")
-            if username and password:
-                import base64
-                auth_string = base64.b64encode(f"{username}:{password}".encode()).decode()
-                return {"Authorization": f"Basic {auth_string}"}
+        username, password, bearer_token = _split_credentials(credentials)
+
+        # Token-only credentials (typical for GHCR PATs)
+        if bearer_token:
+            return {"Authorization": f"Bearer {bearer_token}"}
+
+        # Username + password/token -> Basic (Docker Hub login API, docker login, ...)
+        if username and password:
+            auth_string = base64.b64encode(f"{username}:{password}".encode()).decode()
+            return {"Authorization": f"Basic {auth_string}"}
 
         return {}
 
@@ -219,9 +222,7 @@ class RegistryAuthManager:
         """
         Check if we have valid credentials for a registry and optionally a specific repository.
 
-        This method validates that appropriate credentials exist for the specified
-        registry and repository combination, checking for the required credential
-        types based on the registry type.
+        Accepts either a token-only credential or username + password/token.
 
         Parameters:
             registry_url (str): The registry URL
@@ -234,11 +235,8 @@ class RegistryAuthManager:
         if not credentials:
             return False
 
-        # Validate credentials based on registry type
-        if "ghcr.io" in registry_url or "github.com" in registry_url:
-            return "token" in credentials
-        else:
-            return "username" in credentials and ("password" in credentials or "token" in credentials)
+        username, password, bearer_token = _split_credentials(credentials)
+        return bool(bearer_token or (username and password))
 
     def list_registries(self) -> list:
         """
@@ -263,9 +261,199 @@ class RegistryAuthManager:
 auth_manager = RegistryAuthManager()
 
 
+def _split_credentials(credentials: Dict[str, str]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """
+    Normalize credential dict into (username, password, bearer_token).
+
+    - ``token`` without ``username`` -> bearer token (e.g. GHCR PAT)
+    - ``username`` + ``password`` or ``token`` -> Basic auth material for challenge/login
+    """
+    username = credentials.get("username") or None
+    if username:
+        password = credentials.get("password") or credentials.get("token") or None
+        return username, password, None
+
+    bearer_token = credentials.get("token") or None
+    password = credentials.get("password") or None
+    return None, password, bearer_token
+
+
+def parse_www_authenticate(header: str) -> Dict[str, str]:
+    """
+    Parse a WWW-Authenticate header into a dict of parameters.
+
+    Example:
+      Bearer realm="https://gitlab.example/jwt/auth",service="container_registry",scope="repository:foo/bar:pull"
+    """
+    if not header:
+        return {}
+
+    result: Dict[str, str] = {}
+    scheme_match = re.match(r"^\s*(\w+)\s+(.*)$", header, re.DOTALL)
+    if not scheme_match:
+        return {}
+
+    result["scheme"] = scheme_match.group(1)
+    params = scheme_match.group(2)
+    for match in re.finditer(r'(\w+)="([^"]*)"', params):
+        result[match.group(1)] = match.group(2)
+    return result
+
+
+def _build_token_url(realm: str, service: Optional[str], scope: Optional[str]) -> str:
+    parsed = urlparse(realm)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    if service:
+        query["service"] = service
+    if scope:
+        query["scope"] = scope
+    return urlunparse(parsed._replace(query=urlencode(query)))
+
+
+def _fetch_oauth_token(
+    realm: str,
+    service: Optional[str],
+    scope: Optional[str],
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+    timeout: int = 15,
+) -> Optional[str]:
+    """Exchange credentials (or anonymous access) at the auth realm for a Bearer token."""
+    token_url = _build_token_url(realm, service, scope)
+    headers = {}
+    if username and password:
+        basic = base64.b64encode(f"{username}:{password}".encode()).decode()
+        headers["Authorization"] = f"Basic {basic}"
+
+    logger.debug(f"Requesting OCI registry token from {token_url}", extra={"indent": 2})
+    response = requests.get(token_url, headers=headers, timeout=timeout)
+    response.raise_for_status()
+    data = response.json()
+    token = data.get("token") or data.get("access_token")
+    if not token:
+        logger.error("OCI auth realm returned no token/access_token", extra={"indent": 2})
+        return None
+    return token
+
+
+def obtain_oci_auth_headers(
+    registry_api_url: str,
+    repository_name: str,
+    probe_url: Optional[str] = None,
+    timeout: int = 30,
+) -> Optional[Dict[str, str]]:
+    """
+    Obtain Authorization headers for the OCI Distribution API (Docker Registry HTTP API V2).
+
+    This follows the standard registry auth challenge used by GitLab, GHCR, Harbor, etc.:
+
+    1. Optional preconfigured Bearer token (``token`` without username) is used directly.
+    2. Otherwise probe ``probe_url`` (default: ``{registry}/``) without auth.
+    3. On HTTP 401, parse ``WWW-Authenticate`` Bearer ``realm`` / ``service`` / ``scope``.
+    4. Fetch a JWT/access token from the realm (with Basic credentials when configured).
+    5. Return ``Authorization: Bearer ...`` headers.
+
+    Docker Hub **tag discovery** still uses the Hub REST API + Hub JWT login in
+    ``registries/docker.py``; this helper is for OCI ``/v2/...`` endpoints only.
+
+    Returns:
+        dict: Auth headers (may be empty for fully public registries), or None if
+        authentication/token exchange failed and authenticated access is required.
+    """
+    credentials = get_credentials(registry_api_url, repository_name)
+    username, password, bearer_token = _split_credentials(credentials) if credentials else (None, None, None)
+
+    if bearer_token:
+        logger.debug(
+            f"Using preconfigured Bearer token for OCI registry {registry_api_url}",
+            extra={"indent": 2},
+        )
+        return {"Authorization": f"Bearer {bearer_token}"}
+
+    if not probe_url:
+        probe_url = registry_api_url if registry_api_url.endswith("/") else f"{registry_api_url}/"
+
+    try:
+        probe = requests.get(probe_url, timeout=timeout)
+    except requests.RequestException as e:
+        cause = f"OCI registry probe failed for {probe_url}: {e}"
+        logger.error(cause, extra={"indent": 2})
+        generic.set_last_discovery_error(cause)
+        return None
+
+    if probe.ok:
+        logger.debug(f"OCI registry probe succeeded anonymously for {probe_url}", extra={"indent": 2})
+        return {}
+
+    if probe.status_code == 429:
+        cause = f"Registry rate limit exceeded (HTTP 429) during probe of {probe_url}"
+        logger.error(cause, extra={"indent": 2})
+        generic.set_last_discovery_error(cause)
+        return None
+
+    if probe.status_code != 401:
+        cause = (
+            f"OCI registry probe for {probe_url} returned HTTP {probe.status_code} "
+            f"(expected 200 or 401 for auth challenge)"
+        )
+        logger.error(cause, extra={"indent": 2})
+        generic.set_last_discovery_error(cause)
+        return None
+
+    www_auth = probe.headers.get("WWW-Authenticate") or probe.headers.get("Www-Authenticate") or ""
+    challenge = parse_www_authenticate(www_auth)
+    if challenge.get("scheme", "").lower() != "bearer" or not challenge.get("realm"):
+        cause = (
+            f"OCI registry returned 401 without a usable Bearer realm "
+            f"(WWW-Authenticate: {www_auth!r})"
+        )
+        logger.error(cause, extra={"indent": 2})
+        generic.set_last_discovery_error(cause)
+        return None
+
+    scope = challenge.get("scope") or f"repository:{repository_name}:pull"
+    service = challenge.get("service")
+
+    try:
+        token = _fetch_oauth_token(
+            realm=challenge["realm"],
+            service=service,
+            scope=scope,
+            username=username,
+            password=password,
+            timeout=min(timeout, 20),
+        )
+    except requests.RequestException as e:
+        cause = (
+            f"OCI token exchange failed for {registry_api_url} "
+            f"(repository={repository_name}): {e}"
+        )
+        logger.error(cause, extra={"indent": 2})
+        generic.set_last_discovery_error(cause)
+        return None
+
+    if not token:
+        cause = f"OCI auth realm returned no token for {registry_api_url}"
+        generic.set_last_discovery_error(cause)
+        return None
+
+    if username:
+        logger.debug(
+            f"Obtained OCI Bearer token for {registry_api_url} using configured credentials",
+            extra={"indent": 2},
+        )
+    else:
+        logger.debug(
+            f"Obtained anonymous OCI Bearer token for {registry_api_url}",
+            extra={"indent": 2},
+        )
+
+    return {"Authorization": f"Bearer {token}"}
+
+
 def get_auth_headers(registry_url: str, repository_name: Optional[str] = None) -> Dict[str, str]:
     """
-    Convenience function to get auth headers for a registry and optionally a repository.
+    Convenience function to get static auth headers for a registry and optionally a repository.
 
     Parameters:
         registry_url (str): The registry URL

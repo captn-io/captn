@@ -588,11 +588,13 @@ API URLs are built as `https://{registry}/v2/{repository}` for all non-Docker-Hu
 
 ### Supported registry types
 
-| Registry                      | Example image                        | Tag discovery                                  | Config section |
-| ----------------------------- | ------------------------------------ | ---------------------------------------------- | -------------- |
-| **Docker Hub**                | `nginx:1.25`, `library/mariadb:11.4` | Docker Hub REST API (`/repositories/.../tags`) | `[docker]`     |
-| **GitHub Container Registry** | `ghcr.io/org/app:1.0`                | GHCR-specific API and token flow               | `[ghcr]`       |
-| **OCI v2 compatible**         | `registry.my-domain.com/org/app:1.0` | OCI Distribution API (`/v2/.../tags/list`)     | `[ghcr]`       |
+| Registry                      | Example image                        | Tag discovery                                  | Auth model                                            |
+| ----------------------------- | ------------------------------------ | ---------------------------------------------- | ----------------------------------------------------- |
+| **Docker Hub**                | `nginx:1.25`, `library/mariadb:11.4` | Docker Hub REST API (`/repositories/.../tags`) | Hub JWT login (`username` + `password`/`token`)       |
+| **GitHub Container Registry** | `ghcr.io/org/app:1.0`                | OCI Distribution API (`/v2/.../tags/list`)     | Shared OCI Bearer challenge, or preconfigured `token` |
+| **OCI v2 compatible**         | `registry.my-domain.com/org/app:1.0` | OCI Distribution API (`/v2/.../tags/list`)     | Shared OCI Bearer challenge (GitLab, Harbor, …)       |
+
+GHCR and private/custom registries share the same OCI client and authentication flow. Docker Hub remains separate because its **tag listing** API is Hub-specific (not the OCI `/v2/.../tags/list` endpoint).
 
 ### Authentication for private registries
 
@@ -600,11 +602,31 @@ Private or authenticated registries require `[registryAuth]` to be enabled and a
 
 Authentication is used for both **tag discovery** and **image pulls**.
 
+#### OCI Bearer challenge (GHCR, GitLab, Harbor, …)
+
+For OCI registries, captn follows the Docker Registry HTTP API V2 auth challenge:
+
+1. Probe the registry (typically the tags endpoint)
+2. On HTTP 401, parse `WWW-Authenticate: Bearer realm=…,service=…,scope=…`
+3. Request a short-lived token from the realm (with Basic credentials when configured)
+4. Call `/v2/.../tags/list` and manifests with `Authorization: Bearer <token>`
+
+Sending only HTTP Basic to `/v2/.../tags/list` is **not** sufficient for GitLab Container Registry and similar implementations.
+
+Credential shapes:
+
+| Registry             | Typical `registry-credentials.json` entry                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Docker Hub           | `username` + `password` or PAT (`token`) under `https://registry.hub.docker.com/v2`                           |
+| GHCR                 | `token` (GitHub PAT) under `https://ghcr.io/v2`, or username + PAT                                            |
+| GitLab / private OCI | `username` + PAT/`password` under `https://registry.example.com/v2` (hostname match also works without `/v2`) |
+
 ### Limitations
 
 - **OCI v2 required:** The registry must support the Distribution API endpoint `GET /v2/{repository}/tags/list`. Registries with non-standard APIs are not supported.
 - **`latest` tag:** Containers pinned to `latest` may not receive semver-based update suggestions, because tag filtering requires a concrete version string to match against. Prefer explicit version tags (e.g. `1.2.3`) where updates are desired.
 - **Pagination:** OCI v2 registries use `pageCrawlLimit` and `pageSize` from `[ghcr]` (defaults: 1000 pages × 100 tags).
+- **Docker Hub anonymous pagination:** Without Docker Hub credentials, Docker Hub rejects tag list requests beyond an offset of about **1000 tags** (HTTP 403, e.g. page 11 with `pageSize = 100`) with a message such as *pagination offset too large for anonymous requests; sign in to page further*. Large public repositories (for example `library/lidarr`) often exceed this limit. captn then aborts tag discovery for that image, logs an error, and does **not** treat the failure as “no updates available”. To crawl the full tag list (including major/minor candidates), enable `[registryAuth]` and add Docker Hub credentials for `https://registry.hub.docker.com/v2` in `registry-credentials.json` (see below).
 
 ---
 
@@ -643,7 +665,7 @@ Maximum number of pages to crawl when searching for images.
 pageCrawlLimit = 1000
 ```
 
-**Note:** Higher values allow finding older images but increase API usage.
+**Note:** Higher values allow finding older images but increase API usage. Anonymous Docker Hub access is still capped by Hub’s pagination offset limit (~1000 tags); raising `pageCrawlLimit` alone does not bypass that — see [Limitations](#limitations) and `[registryAuth]`.
 
 #### `pageSize`
 
@@ -839,7 +861,7 @@ If both `registries` and `repositories` define credentials for the same image, *
 
 ##### Minimal examples
 
-Docker Hub only:
+Docker Hub only (also required for large **public** Hub repositories when anonymous pagination is insufficient):
 
 ```json
 {

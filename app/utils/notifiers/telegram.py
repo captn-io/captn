@@ -380,24 +380,29 @@ class TelegramNotifier(BaseNotifier):
                 new_version = detail.get("new_version", "Unknown")
                 update_type = detail.get("update_type", "Unknown")
                 duration = detail.get("duration")
+                error_message = detail.get("error_message")
 
-                # Add duration if available
-                if duration is not None:
-                    if duration < 60:
-                        duration_str = f"{duration:.1f}s"
-                    elif duration < 3600:
-                        duration_str = f"{duration / 60:.1f}m"
-                    else:
-                        duration_str = f"{duration / 3600:.1f}h"
-                else:
-                    duration_str = "N/A"
+                hide_update_meta = (
+                    str(update_type).lower() == "unknown"
+                    and str(new_version).lower() == "unknown"
+                )
 
                 lines.append(f"")
                 lines.append(f"<b>{container_name}</b>")
-                lines.append(f"<code>{old_version} → {new_version}</code>")
-                lines.append(f"<code>   {update_type_emoji(update_type)} {update_type}</code>")
-                lines.append(f"<code>   ⏱️ {duration_str}</code>")
-                error_message = detail.get("error_message")
+                if not hide_update_meta:
+                    if duration is not None:
+                        if duration < 60:
+                            duration_str = f"{duration:.1f}s"
+                        elif duration < 3600:
+                            duration_str = f"{duration / 60:.1f}m"
+                        else:
+                            duration_str = f"{duration / 3600:.1f}h"
+                    else:
+                        duration_str = "N/A"
+
+                    lines.append(f"<code>{old_version} → {new_version}</code>")
+                    lines.append(f"<code>   {update_type_emoji(update_type)} {update_type}</code>")
+                    lines.append(f"<code>   ⏱️ {duration_str}</code>")
                 if error_message:
                     lines.append(f"<code>   ❌ {error_message}</code>")
 

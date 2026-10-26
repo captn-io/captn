@@ -3,11 +3,31 @@
 
 import logging
 import re
+from typing import Optional
 
 from packaging.version import Version
 from ..common import normalize_version
 
 logger = logging.getLogger(__name__)
+
+_last_discovery_error: Optional[str] = None
+
+
+def set_last_discovery_error(message: Optional[str]) -> None:
+    """Store the most recent tag-discovery failure cause for callers/reports."""
+    global _last_discovery_error
+    _last_discovery_error = message
+
+
+def get_last_discovery_error() -> Optional[str]:
+    """Return the most recent tag-discovery failure cause, if any."""
+    return _last_discovery_error
+
+
+def clear_last_discovery_error() -> None:
+    """Clear any stored tag-discovery failure cause."""
+    global _last_discovery_error
+    _last_discovery_error = None
 
 
 def extract_tag_name(tag):

@@ -707,6 +707,24 @@ class SMTPNotifier(BaseNotifier):
         new_version = detail.get("new_version", "Unknown")
         update_type = detail.get("update_type", "unknown")
         duration = detail.get("duration")
+        error_message = detail.get("error_message")
+
+        # Discovery/auth failures have no meaningful version jump, type, or duration
+        hide_update_meta = (
+            status == "failed"
+            and str(update_type).lower() == "unknown"
+            and str(new_version).lower() == "unknown"
+        )
+
+        error_html = f'<div class="version-info">{error_message}</div>' if error_message else ""
+
+        if hide_update_meta:
+            return f"""
+        <div class="update-item {'failed' if status == 'failed' else ''}">
+            <div class="container-name">{container_name}</div>
+            {error_html}
+        </div>
+        """
 
         # Format duration
         if duration is not None:
@@ -718,9 +736,6 @@ class SMTPNotifier(BaseNotifier):
                 duration_str = f"{duration / 3600:.1f}h"
         else:
             duration_str = "N/A"
-
-        error_message = detail.get("error_message")
-        error_html = f'<div class="version-info">{error_message}</div>' if error_message else ""
 
         return f"""
         <div class="update-item {'failed' if status == 'failed' else ''}">

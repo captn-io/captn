@@ -152,7 +152,7 @@ docker run -it --rm \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v "$(pwd)/app":/app \
     -v captn-dev-cache:/root/.cache \
-    -v captn-dev-pip:/opt/venv/lib/python3.11/site-packages \
+    -v captn-dev-pip:/opt/venv/lib/python3.14/site-packages \
     -w /app \
     -e PYTHONPATH=/app \
     -e DEVELOPMENT=true \

@@ -2391,6 +2391,60 @@ enabled =
 #     }
 # }
 
+[labelFiltering]
+# Enable label filtering during container recreation
+# Labels are always merged: the old image labels form the base set, the labels
+# of the old container are kept on top and for the same key the value of the
+# new image wins. The patterns below refine this behavior.
+# When disabled, the patterns are ignored and only the plain merge applies.
+# Possible values: true, false
+# Default: true
+enabled =
+
+# Patterns for labels whose container value should never be carried over
+# The label gets the value of the new image or is removed if the new image
+# does not define it (e.g. outdated metadata labels of the old image)
+# Format: JSON array of string patterns (supports wildcards: *, ?, [])
+# Default: None
+#
+# Examples:
+# excludePatterns = [
+#     "org.opencontainers.image.*",
+#     "org.label-schema.*"
+# ]
+
+# Patterns for labels whose container value should always be kept
+# The container value wins, even if the new image defines a different value
+# preservePatterns take precedence over excludePatterns
+# Format: JSON array of string patterns (supports wildcards: *, ?, [])
+# Default: None
+#
+# Examples:
+# preservePatterns = [
+#     "traefik.*",
+#     "com.docker.compose.*",
+#     "captn.*"
+# ]
+
+# Container-specific label filtering rules
+# These patterns are added to the global patterns for specific containers
+# Format: JSON object with container names as keys
+# Container names are matched using case-insensitive substring matching
+# Example: "immich" will match "immich-server", "immich-api", etc.
+# Default: None
+#
+# Examples:
+# containerSpecificRules = {
+#     "nextcloud": {
+#         "excludePatterns": [
+#             "org.opencontainers.image.*"
+#         ],
+#         "preservePatterns": [
+#             "org.opencontainers.image.title"
+#         ]
+#     }
+# }
+
 [assignments]
 # Direct rule assignments by container name
 # This allows you to assign rules to containers

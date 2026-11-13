@@ -21,6 +21,7 @@ This document provides a comprehensive reference for all captn configuration opt
   - [registryAuth](#registryauth)
     - [registry-credentials.json](#registry-credentialsjson)
   - [envFiltering](#envfiltering)
+  - [labelFiltering](#labelfiltering)
   - [notifiers](#notifiers)
     - [Update Report Reference](#update-report-reference)
   - [notifiers.telegram](#notifierstelegram)
@@ -1037,6 +1038,122 @@ containerSpecificRules = {
     }
 }
 ```
+
+---
+
+### `[labelFiltering]`
+
+Label handling during container recreation.
+
+When captn recreates a container with a new image, labels are merged instead of being copied 1:1 from the old container:
+
+1. The labels of the old image form the base set.
+2. The labels of the old container are applied on top, so user- and orchestrator-defined labels (e.g. Traefik, Compose) are retained.
+3. For every key the new image defines, the value of the new image wins (e.g. `org.opencontainers.image.version` reflects the updated image).
+
+The patterns below refine this merge. If the new image is not available locally (e.g. in dry-run mode, where no image is pulled), the container labels are kept unchanged.
+
+#### `enabled`
+
+Enable label filtering patterns.
+
+- **Type:** Boolean
+- **Default:** `true`
+- **Values:** `true`, `false`
+
+**Purpose:** When disabled, `excludePatterns`, `preservePatterns` and `containerSpecificRules` are ignored and only the plain merge applies (new image values overwrite, all additional container labels are kept).
+
+**Example:**
+```ini
+[labelFiltering]
+enabled = true
+```
+
+#### `excludePatterns`
+
+Patterns for labels whose container value is never carried over. The label gets the value of the new image, or is removed if the new image does not define it.
+
+- **Type:** JSON array of strings
+- **Default:** `[]` (empty array)
+- **Supports:** Wildcards (`*`, `?`, `[]`)
+
+**Example:**
+```ini
+[labelFiltering]
+excludePatterns = [
+    "org.opencontainers.image.*",
+    "org.label-schema.*"
+]
+```
+
+**Note:** Useful to drop outdated metadata labels of the old image that the new image no longer defines.
+
+#### `preservePatterns`
+
+Patterns for labels whose container value is always kept, even if the new image defines a different value.
+
+- **Type:** JSON array of strings
+- **Default:** `[]` (empty array)
+- **Supports:** Wildcards (`*`, `?`, `[]`)
+
+**Example:**
+```ini
+[labelFiltering]
+preservePatterns = [
+    "traefik.*",
+    "com.docker.compose.*",
+    "captn.*"
+]
+```
+
+**Note:** `preservePatterns` take precedence over `excludePatterns`.
+
+#### `containerSpecificRules`
+
+Container-specific label filtering rules.
+
+- **Type:** JSON object
+- **Default:** `{}` (empty object)
+
+**Format:**
+```json
+{
+    "container_name": {
+        "excludePatterns": ["PATTERN1", "PATTERN2"],
+        "preservePatterns": ["PATTERN3", "PATTERN4"]
+    }
+}
+```
+
+**Example:**
+```ini
+[labelFiltering]
+containerSpecificRules = {
+    "nextcloud": {
+        "excludePatterns": [
+            "org.opencontainers.image.*"
+        ],
+        "preservePatterns": [
+            "org.opencontainers.image.title"
+        ]
+    }
+}
+```
+
+**Matching Logic:**
+- Container names are matched using case-insensitive substring matching
+- Example: `"immich"` matches `"immich-server"`, `"immich-api"`, etc.
+- Container-specific patterns are added to the global patterns
+
+**Merge Overview:**
+
+| Label | Default | `preservePatterns` match | `excludePatterns` match |
+|---|---|---|---|
+| Defined by the new image | new image value | container value | new image value |
+| Only on old container / old image | kept | kept | removed |
+| Only in new image | added | added | added |
+
+Run captn with `--log-level debug` to see for every label whether it was added, updated, kept, preserved or excluded.
 
 ---
 

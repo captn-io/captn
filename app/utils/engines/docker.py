@@ -123,8 +123,41 @@ def get_env_filter_rules(container_name=None):
     Returns:
         dict: Filtering rules including exclude_patterns and preserve_patterns
     """
-    # Check if ENV filtering is enabled
-    if not getattr(config.envFiltering, 'enabled', True):
+    return get_filter_rules("envFiltering", container_name)
+
+
+def get_container_specific_env_rules(container_name):
+    """
+    Get container-specific environment variable filtering rules.
+
+    Parameters:
+        container_name (str): Container name
+
+    Returns:
+        dict: Container-specific rules or empty dict if no rules found
+    """
+    return get_container_specific_filter_rules("envFiltering", container_name)
+
+
+def get_filter_rules(section_name, container_name=None):
+    """
+    Get filtering rules from a filtering configuration section.
+
+    This function retrieves exclude and preserve patterns from a filtering
+    section (e.g. [envFiltering], [labelFiltering]), including global rules
+    and container-specific additions.
+
+    Parameters:
+        section_name (str): Name of the configuration section
+        container_name (str, optional): Container name for specific rules
+
+    Returns:
+        dict: Filtering rules including exclude_patterns and preserve_patterns
+    """
+    section = getattr(config, section_name)
+
+    # Check if filtering is enabled for this section
+    if not getattr(section, 'enabled', True):
         return {'exclude_patterns': [], 'preserve_patterns': []}
 
     # Get rules from configuration
@@ -134,26 +167,26 @@ def get_env_filter_rules(container_name=None):
     }
 
     # Load exclude patterns from config
-    if hasattr(config.envFiltering, 'excludePatterns'):
+    if hasattr(section, 'excludePatterns'):
         try:
-            exclude_patterns = json.loads(config.envFiltering.excludePatterns)
+            exclude_patterns = json.loads(section.excludePatterns)
             if isinstance(exclude_patterns, list):
                 rules['exclude_patterns'] = exclude_patterns
-        except (json.JSONDecodeError, AttributeError):
-            logging.warning("Invalid excludePatterns in config, using defaults", extra={"indent": 4})
+        except (json.JSONDecodeError, AttributeError, TypeError):
+            logging.warning(f"Invalid {section_name}.excludePatterns in config, using defaults", extra={"indent": 4})
 
     # Load preserve patterns from config
-    if hasattr(config.envFiltering, 'preservePatterns'):
+    if hasattr(section, 'preservePatterns'):
         try:
-            preserve_patterns = json.loads(config.envFiltering.preservePatterns)
+            preserve_patterns = json.loads(section.preservePatterns)
             if isinstance(preserve_patterns, list):
                 rules['preserve_patterns'] = preserve_patterns
-        except (json.JSONDecodeError, AttributeError):
-            logging.warning("Invalid preservePatterns in config, using defaults", extra={"indent": 4})
+        except (json.JSONDecodeError, AttributeError, TypeError):
+            logging.warning(f"Invalid {section_name}.preservePatterns in config, using defaults", extra={"indent": 4})
 
     # Container-specific rules (if configured)
     if container_name:
-        container_rules = get_container_specific_env_rules(container_name)
+        container_rules = get_container_specific_filter_rules(section_name, container_name)
         if container_rules:
             rules['exclude_patterns'].extend(container_rules.get('exclude_patterns', []))
             rules['preserve_patterns'].extend(container_rules.get('preserve_patterns', []))
@@ -161,24 +194,27 @@ def get_env_filter_rules(container_name=None):
     return rules
 
 
-def get_container_specific_env_rules(container_name):
+def get_container_specific_filter_rules(section_name, container_name):
     """
-    Get container-specific environment variable filtering rules.
+    Get container-specific filtering rules from a filtering configuration section.
 
-    This function retrieves container-specific environment variable filtering
-    rules from the configuration. It supports case-insensitive substring
-    matching for container names.
+    This function retrieves container-specific filtering rules from the
+    configuration. It supports case-insensitive substring matching for
+    container names.
 
     Parameters:
+        section_name (str): Name of the configuration section
         container_name (str): Container name
 
     Returns:
         dict: Container-specific rules or empty dict if no rules found
     """
+    section = getattr(config, section_name)
+
     # Load container-specific rules from config
-    if hasattr(config.envFiltering, 'containerSpecificRules'):
+    if hasattr(section, 'containerSpecificRules'):
         try:
-            container_rules = json.loads(config.envFiltering.containerSpecificRules)
+            container_rules = json.loads(section.containerSpecificRules)
             if isinstance(container_rules, dict):
                 # Find matching container rule (case-insensitive substring matching)
                 for rule_name, rule_data in container_rules.items():
@@ -188,10 +224,79 @@ def get_container_specific_env_rules(container_name):
                                 'exclude_patterns': rule_data.get('excludePatterns', []),
                                 'preserve_patterns': rule_data.get('preservePatterns', [])
                             }
-        except (json.JSONDecodeError, AttributeError):
-            logging.warning("Invalid containerSpecificRules in config", extra={"indent": 4})
+        except (json.JSONDecodeError, AttributeError, TypeError):
+            logging.warning(f"Invalid {section_name}.containerSpecificRules in config", extra={"indent": 4})
 
     return {}
+
+
+def merge_labels(container_inspect_data, old_image_inspect_data, new_image_inspect_data, container_name=None):
+    """
+    Merge container labels with the labels of the old and the new image.
+
+    The old image labels form the base set, the labels of the old container
+    are applied on top (so user and orchestrator labels are retained) and the
+    labels of the new image win for every key they define. [labelFiltering]
+    patterns refine this:
+
+    - preservePatterns: keep the container's value even if the new image
+      defines a different one.
+    - excludePatterns: never carry the container's value over; the key gets
+      the new image's value or is dropped if the new image does not define it.
+    - preservePatterns take precedence over excludePatterns.
+
+    Parameters:
+        container_inspect_data (dict): Container inspect data
+        old_image_inspect_data (dict): Inspect data of the image the container was created from
+        new_image_inspect_data (dict): Inspect data of the image the container is recreated with
+        container_name (str, optional): Container name for container-specific rules
+
+    Returns:
+        dict: Labels for the recreated container
+    """
+    container_labels = (container_inspect_data or {}).get("Config", {}).get("Labels") or {}
+    old_image_labels = (old_image_inspect_data or {}).get("Config", {}).get("Labels") or {}
+    new_image_labels = (new_image_inspect_data or {}).get("Config", {}).get("Labels") or {}
+
+    rules = get_filter_rules("labelFiltering", container_name)
+    preserve_patterns = rules.get('preserve_patterns', [])
+    exclude_patterns = rules.get('exclude_patterns', [])
+
+    def matches(key, patterns):
+        return any(fnmatch.fnmatch(key, pattern) for pattern in patterns)
+
+    logging.debug("Merging labels", extra={"indent": 4})
+
+    merged = dict(old_image_labels)
+    merged.update(container_labels)
+
+    for key in sorted(merged.keys() | new_image_labels.keys()):
+        in_new_image = key in new_image_labels
+        current_value = merged.get(key)
+
+        if key in merged and matches(key, preserve_patterns):
+            if in_new_image and new_image_labels[key] != current_value:
+                logging.debug(f"Preserving label '{key}' (matches preserve rule, new image value ignored)", extra={"indent": 6})
+            else:
+                logging.debug(f"Preserving label '{key}' (matches preserve rule)", extra={"indent": 6})
+            continue
+
+        if in_new_image:
+            if key not in merged:
+                logging.debug(f"Adding label '{key}' from new image", extra={"indent": 6})
+            elif new_image_labels[key] != current_value:
+                logging.debug(f"Updating label '{key}' from new image", extra={"indent": 6})
+            merged[key] = new_image_labels[key]
+            continue
+
+        if matches(key, exclude_patterns):
+            logging.debug(f"Excluding label '{key}' (matches exclude rule)", extra={"indent": 6})
+            del merged[key]
+            continue
+
+        logging.debug(f"Keeping label '{key}'", extra={"indent": 6})
+
+    return merged
 
 
 def get_client():
@@ -516,7 +621,7 @@ def get_container_spec(client, container_inspect_data, container_name, image, im
         container_inspect_data (dict): Output of docker inspect on the container
         container_name (str): Name to assign to the new container
         image (str): New image reference to use
-        image_inspect_data (dict, optional): Image inspect data for ENV filtering
+        image_inspect_data (dict, optional): Inspect data of the current (old) image for ENV filtering and label merging
 
     Returns:
         dict: Ready-to-use arguments for client.api.create_container()
@@ -593,6 +698,21 @@ def get_container_spec(client, container_inspect_data, container_name, image, im
         filtered_env = container_env
         logging.warning("No image_inspect_data provided - preserving all environment variables", extra={"indent": 6})
 
+    container_labels = config.get("Labels") or {}
+    new_image_inspect_data = None
+    try:
+        new_image_inspect_data = client.api.inspect_image(image)
+    except docker_errors.ImageNotFound:
+        logging.debug(f"New image '{image}' not available locally - keeping container labels unchanged", extra={"indent": 6})
+    except docker_errors.APIError as e:
+        logging.warning(f"Failed to inspect new image '{image}' - keeping container labels unchanged: {e}", extra={"indent": 6})
+
+    if new_image_inspect_data:
+        merged_labels = merge_labels(container_inspect_data, image_inspect_data, new_image_inspect_data, container_name)
+        logging.debug(f"Labels: {len(container_labels)} on container, {len(merged_labels)} after merge", extra={"indent": 6})
+    else:
+        merged_labels = container_labels
+
     spec = {
         "name": container_name,
         "image": image,
@@ -620,7 +740,7 @@ def get_container_spec(client, container_inspect_data, container_name, image, im
         "user": config.get("User"),
         "stdin_open": config.get("OpenStdin"),
         "tty": config.get("Tty"),
-        "labels": config.get("Labels"),
+        "labels": merged_labels,
         "volumes": config.get("Volumes"),
         "healthcheck": config.get("Healthcheck"),
         "ports": config.get("ExposedPorts"),

@@ -65,6 +65,15 @@ DEFAULTS = {
         "containerSpecificRules": """{
         }"""
     },
+    "labelFiltering": {
+        "enabled": "true",
+        "excludePatterns": """[
+        ]""",
+        "preservePatterns": """[
+        ]""",
+        "containerSpecificRules": """{
+        }"""
+    },
     "notifiers": {
         "enabled": "false",
         "sendOn": "changes",
@@ -482,69 +491,57 @@ class Config:
                     if not isinstance(auth.credentialsFile, str) or not os.path.exists(auth.credentialsFile):
                         errors.append(f"registryAuth.credentialsFile must be a valid path to a JSON file")
 
-        # Validate envFiltering section
-        if "envFiltering" in self._namespaces:
-            env_filter = self._namespaces["envFiltering"]
-            if hasattr(env_filter, "enabled"):
-                if not isinstance(env_filter.enabled, bool):
-                    errors.append("envFiltering.enabled must be a boolean (true/false)")
+        # Validate envFiltering and labelFiltering sections
+        for filter_section in ["envFiltering", "labelFiltering"]:
+            if filter_section not in self._namespaces:
+                continue
+            section_filter = self._namespaces[filter_section]
+            if hasattr(section_filter, "enabled"):
+                if not isinstance(section_filter.enabled, bool):
+                    errors.append(f"{filter_section}.enabled must be a boolean (true/false)")
 
-            # Validate excludePatterns
-            if hasattr(env_filter, "excludePatterns"):
-                if not self.is_valid_json(env_filter.excludePatterns):
-                    errors.append("envFiltering.excludePatterns must be valid JSON array")
-                else:
-                    try:
-                        patterns = json.loads(env_filter.excludePatterns)
-                        if not isinstance(patterns, list):
-                            errors.append("envFiltering.excludePatterns must be a JSON array")
-                        else:
-                            for pattern in patterns:
-                                if not isinstance(pattern, str):
-                                    errors.append("envFiltering.excludePatterns must contain only strings")
-                    except json.JSONDecodeError:
-                        errors.append("envFiltering.excludePatterns contains invalid JSON")
-
-            # Validate preservePatterns
-            if hasattr(env_filter, "preservePatterns"):
-                if not self.is_valid_json(env_filter.preservePatterns):
-                    errors.append("envFiltering.preservePatterns must be valid JSON array")
-                else:
-                    try:
-                        patterns = json.loads(env_filter.preservePatterns)
-                        if not isinstance(patterns, list):
-                            errors.append("envFiltering.preservePatterns must be a JSON array")
-                        else:
-                            for pattern in patterns:
-                                if not isinstance(pattern, str):
-                                    errors.append("envFiltering.preservePatterns must contain only strings")
-                    except json.JSONDecodeError:
-                        errors.append("envFiltering.preservePatterns contains invalid JSON")
+            # Validate excludePatterns and preservePatterns
+            for pattern_key in ["excludePatterns", "preservePatterns"]:
+                if hasattr(section_filter, pattern_key):
+                    pattern_value = getattr(section_filter, pattern_key)
+                    if not self.is_valid_json(pattern_value):
+                        errors.append(f"{filter_section}.{pattern_key} must be valid JSON array")
+                    else:
+                        try:
+                            patterns = json.loads(pattern_value)
+                            if not isinstance(patterns, list):
+                                errors.append(f"{filter_section}.{pattern_key} must be a JSON array")
+                            else:
+                                for pattern in patterns:
+                                    if not isinstance(pattern, str):
+                                        errors.append(f"{filter_section}.{pattern_key} must contain only strings")
+                        except json.JSONDecodeError:
+                            errors.append(f"{filter_section}.{pattern_key} contains invalid JSON")
 
             # Validate containerSpecificRules
-            if hasattr(env_filter, "containerSpecificRules"):
-                if not self.is_valid_json(env_filter.containerSpecificRules):
-                    errors.append("envFiltering.containerSpecificRules must be valid JSON object")
+            if hasattr(section_filter, "containerSpecificRules"):
+                if not self.is_valid_json(section_filter.containerSpecificRules):
+                    errors.append(f"{filter_section}.containerSpecificRules must be valid JSON object")
                 else:
                     try:
-                        rules = json.loads(env_filter.containerSpecificRules)
+                        rules = json.loads(section_filter.containerSpecificRules)
                         if not isinstance(rules, dict):
-                            errors.append("envFiltering.containerSpecificRules must be a JSON object")
+                            errors.append(f"{filter_section}.containerSpecificRules must be a JSON object")
                         else:
                             for container_name, rule_data in rules.items():
                                 if not isinstance(rule_data, dict):
-                                    errors.append(f"envFiltering.containerSpecificRules.{container_name} must be an object")
+                                    errors.append(f"{filter_section}.containerSpecificRules.{container_name} must be an object")
                                 else:
                                     for rule_type in ["excludePatterns", "preservePatterns"]:
                                         if rule_type in rule_data:
                                             if not isinstance(rule_data[rule_type], list):
-                                                errors.append(f"envFiltering.containerSpecificRules.{container_name}.{rule_type} must be an array")
+                                                errors.append(f"{filter_section}.containerSpecificRules.{container_name}.{rule_type} must be an array")
                                             else:
                                                 for pattern in rule_data[rule_type]:
                                                     if not isinstance(pattern, str):
-                                                        errors.append(f"envFiltering.containerSpecificRules.{container_name}.{rule_type} must contain only strings")
+                                                        errors.append(f"{filter_section}.containerSpecificRules.{container_name}.{rule_type} must contain only strings")
                     except json.JSONDecodeError:
-                        errors.append("envFiltering.containerSpecificRules contains invalid JSON")
+                        errors.append(f"{filter_section}.containerSpecificRules contains invalid JSON")
 
         # Validate rules section
         if "rules" in self._namespaces:
@@ -1197,6 +1194,60 @@ enabled =
 #             "IMMICH_ENV",
 #             "IMMICH_LOG_LEVEL",
 #             "IMMICH_MACHINE_LEARNING_URL"
+#         ]
+#     }}
+# }}
+
+[labelFiltering]
+# Enable label filtering during container recreation
+# Labels are always merged: the old image labels form the base set, the labels
+# of the old container are kept on top and for the same key the value of the
+# new image wins. The patterns below refine this behavior.
+# When disabled, the patterns are ignored and only the plain merge applies.
+# Possible values: true, false
+# Default: {DEFAULTS['labelFiltering']['enabled']}
+enabled =
+
+# Patterns for labels whose container value should never be carried over
+# The label gets the value of the new image or is removed if the new image
+# does not define it (e.g. outdated metadata labels of the old image)
+# Format: JSON array of string patterns (supports wildcards: *, ?, [])
+# Default: None
+#
+# Examples:
+# excludePatterns = [
+#     "org.opencontainers.image.*",
+#     "org.label-schema.*"
+# ]
+
+# Patterns for labels whose container value should always be kept
+# The container value wins, even if the new image defines a different value
+# preservePatterns take precedence over excludePatterns
+# Format: JSON array of string patterns (supports wildcards: *, ?, [])
+# Default: None
+#
+# Examples:
+# preservePatterns = [
+#     "traefik.*",
+#     "com.docker.compose.*",
+#     "captn.*"
+# ]
+
+# Container-specific label filtering rules
+# These patterns are added to the global patterns for specific containers
+# Format: JSON object with container names as keys
+# Container names are matched using case-insensitive substring matching
+# Example: "immich" will match "immich-server", "immich-api", etc.
+# Default: None
+#
+# Examples:
+# containerSpecificRules = {{
+#     "nextcloud": {{
+#         "excludePatterns": [
+#             "org.opencontainers.image.*"
+#         ],
+#         "preservePatterns": [
+#             "org.opencontainers.image.title"
 #         ]
 #     }}
 # }}
